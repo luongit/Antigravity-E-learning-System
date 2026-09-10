@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>3D Digital Globe & Terrain Visualization</title>
+  <script src="__LIB_THREE_PATH__"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background-color: #070B14;
+      font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
+      color: #F8FAFC;
+      position: relative;
+      user-select: none;
+    }
+
+    /* Starfield and space grid */
+    .space-bg {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: radial-gradient(ellipse at center, #0B1528 0%, #050811 100%);
+      background-image: 
+        radial-gradient(1px 1px at 10% 20%, #FFFFFF 100%, transparent),
+        radial-gradient(1.5px 1.5px at 25% 40%, rgba(56, 189, 248, 0.8) 100%, transparent),
+        radial-gradient(1px 1px at 60% 15%, #FFFFFF 100%, transparent),
+        radial-gradient(2px 2px at 80% 65%, rgba(245, 158, 11, 0.7) 100%, transparent),
+        radial-gradient(1px 1px at 45% 85%, #FFFFFF 100%, transparent),
+        radial-gradient(1.5px 1.5px at 90% 30%, #FFFFFF 100%, transparent);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Slide Header */
+    .slide-header {
+      position: absolute;
+      top: 45px; left: 70px; right: 70px;
+      z-index: 20;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 9999px;
+      color: #38BDF8;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .slide-title {
+      font-size: 38px;
+      font-weight: 800;
+      line-height: 1.25;
+      color: #FFFFFF;
+      letter-spacing: -0.5px;
+    }
+    .slide-subtitle {
+      font-size: 17px;
+      color: #94A3B8;
+      margin-top: 6px;
+      font-weight: 500;
+    }
+
+    /* 3D Globe Container */
+    #globe-viewport {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 5;
+    }
+
+    /* Telemetry HUD Card */
+    .hud-card {
+      position: absolute;
+      top: 230px; left: 70px;
+      width: 440px;
+      background: rgba(15, 23, 42, 0.78);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      border-radius: 18px;
+      padding: 26px 30px;
+      box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      z-index: 20;
+    }
+    .hud-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.7);
+      margin-bottom: 18px;
+    }
+    .hud-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #38BDF8;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+    }
+    .hud-status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #10B981;
+      box-shadow: 0 0 10px #10B981;
+    }
+    .hud-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .hud-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .hud-label {
+      font-size: 14px;
+      color: #94A3B8;
+      font-weight: 500;
+    }
+    .hud-val {
+      font-size: 15px;
+      font-weight: 700;
+      color: #F8FAFC;
+      font-family: 'Consolas', monospace;
+    }
+    .hud-val.highlight {
+      color: #F59E0B;
+    }
+    .hud-val.cyan {
+      color: #38BDF8;
+    }
+
+    /* Target Landmark Box */
+    .landmark-box {
+      margin-top: 18px;
+      background: rgba(30, 41, 59, 0.6);
+      border-radius: 10px;
+      padding: 12px 16px;
+      border-left: 3px solid #F59E0B;
+    }
+    .landmark-tag {
+      font-size: 12px;
+      color: #F59E0B;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+    }
+    .landmark-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-top: 4px;
+    }
+
+    /* Compass Rose in Top Right */
+    .compass-box {
+      position: absolute;
+      top: 60px; right: 70px;
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+    }
+    .compass-needle {
+      width: 4px; height: 50px;
+      background: linear-gradient(to bottom, #EF4444 50%, #F8FAFC 50%);
+      transform: rotate(25deg);
+      border-radius: 2px;
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+    }
+    .compass-n {
+      position: absolute;
+      top: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #EF4444;
+    }
+
+    /* Landmark On-Screen Pin Overlay */
+    .pin-overlay {
+      position: absolute;
+      z-index: 15;
+      pointer-events: none;
+      transform: translate(-50%, -100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .pin-tag {
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid #F59E0B;
+      color: #FFFFFF;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5), 0 0 15px rgba(245, 158, 11, 0.4);
+      margin-bottom: 6px;
+    }
+    .pin-point {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: #F59E0B;
+      box-shadow: 0 0 15px #F59E0B, 0 0 30px #F59E0B;
+      position: relative;
+    }
+    .pin-ring {
+      position: absolute;
+      top: -10px; left: -10px;
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      border: 2px solid rgba(245, 158, 11, 0.6);
+      animation: pulse-ring 2s infinite ease-out;
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.5); opacity: 1; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+
+    /* Watermark Badge */
+    .watermark {
+      position: absolute;
+      bottom: 25px; right: 40px;
+      padding: 6px 14px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(51, 65, 85, 0.6);
+      border-radius: 8px;
+      font-size: 12px;
+      color: #64748B;
+      letter-spacing: 1px;
+      font-weight: 600;
+      z-index: 20;
+    }
+  </style>
+</head>
+<body>
+  <div class="space-bg"></div>
+  <div id="globe-viewport"></div>
+
+  <!-- Slide Header -->
+  <header class="slide-header">
+    <div class="badge" id="slide-badge">ĐỊA LÝ TỰ NHIÊN & KHÔNG GIAN TOÀN CẦU 3D</div>
+    <h1 class="slide-title" id="slide-title">CẤU TẠO ĐỊA HÌNH DÃY NÚI HIMALAYA & ĐỈNH EVEREST</h1>
+    <p class="slide-subtitle" id="slide-subtitle">Mô phỏng Quả địa cầu 3D • Tọa độ 27.9881°B, 86.9250°Đ • Quỹ đạo Camera Fly-to</p>
+  </header>
+
+  <!-- Telemetry HUD Card -->
+  <div class="hud-card">
+    <div class="hud-header">
+      <span class="hud-title">TỌA ĐỘ VỊ TRÍ & ĐỘ CAO 3D</span>
+      <span class="hud-status-dot"></span>
+    </div>
+    <div class="hud-grid">
+      <div class="hud-row">
+        <span class="hud-label">Vĩ độ (Latitude):</span>
+        <span class="hud-val cyan" id="hud-lat">27.9881° N</span>
+      </div>
+      <div class="hud-row">
+        <span class="hud-label">Kinh độ (Longitude):</span>
+        <span class="hud-val cyan" id="hud-lon">86.9250° E</span>
+      </div>
+      <div class="hud-row">
+        <span class="hud-label">Độ cao Camera (Alt):</span>
+        <span class="hud-val" id="hud-alt">20,000 m</span>
+      </div>
+      <div class="hud-row">
+        <span class="hud-label">Góc quay (Heading / Pitch):</span>
+        <span class="hud-val" id="hud-angles">45.0° / -30.0°</span>
+      </div>
+      <div class="hud-row">
+        <span class="hud-label">Độ cao đỉnh núi:</span>
+        <span class="hud-val highlight" id="hud-elev">8,848.86 m</span>
+      </div>
+    </div>
+
+    <div class="landmark-box">
+      <div class="landmark-tag">ĐỊA DANH KHẢO SÁT:</div>
+      <div class="landmark-name" id="hud-landmark">Đỉnh Everest (Chomolungma) — Dãy Himalaya</div>
+    </div>
+  </div>
+
+  <!-- Compass Rose -->
+  <div class="compass-box">
+    <div class="compass-n">N</div>
+    <div class="compass-needle" id="compass-needle"></div>
+  </div>
+
+  <!-- Pin Marker Overlay -->
+  <div class="pin-overlay" id="pin-overlay">
+    <div class="pin-tag" id="pin-label">Đỉnh Everest (8,848m)</div>
+    <div class="pin-point">
+      <div class="pin-ring"></div>
+    </div>
+  </div>
+
+  <div class="watermark">CESIUMJS & 3D DIGITAL GLOBE ENGINE</div>
+
+  <script>
+    // Nhận cấu hình tọa độ camera từ Python Agent
+    const geoConfig = __GEO_CONFIG_PLACEHOLDER__;
+
+    if (geoConfig.title) document.getElementById('slide-title').innerText = geoConfig.title;
+    if (geoConfig.subtitle) document.getElementById('slide-subtitle').innerText = geoConfig.subtitle;
+    if (geoConfig.landmark) {
+      document.getElementById('hud-landmark').innerText = geoConfig.landmark;
+      document.getElementById('pin-label').innerText = geoConfig.landmark;
+    }
+
+    const firstWp = (geoConfig.waypoints && geoConfig.waypoints.length > 0) 
+      ? geoConfig.waypoints[0] 
+      : { latitude: 27.9881, longitude: 86.9250, altitude: 20000, heading: 45, pitch: -30 };
+
+    document.getElementById('hud-lat').innerText = firstWp.latitude.toFixed(4) + '° N';
+    document.getElementById('hud-lon').innerText = firstWp.longitude.toFixed(4) + '° E';
+    document.getElementById('hud-alt').innerText = firstWp.altitude.toLocaleString() + ' m';
+    document.getElementById('hud-angles').innerText = (firstWp.heading || 45).toFixed(1) + '° / ' + (firstWp.pitch || -30).toFixed(1) + '°';
+
+    // Thiết lập Three.js 3D Earth Globe
+    const container = document.getElementById('globe-viewport');
+    const scene = new THREE.Scene();
+
+    const camera = new THREE.PerspectiveCamera(40, 1920 / 1080, 0.1, 1000);
+    camera.position.set(2.8, 0.5, 5.5);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(1920, 1080);
+    renderer.setPixelRatio(1);
+    container.appendChild(renderer.domElement);
+
+    // Ánh sáng vũ trụ
+    const ambientLight = new THREE.AmbientLight(0x334155, 1.2);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xFFFFFF, 1.6);
+    sunLight.position.set(5, 3, 5);
+    scene.add(sunLight);
+
+    const rimLight = new THREE.DirectionalLight(0x38BDF8, 0.8);
+    rimLight.position.set(-5, -2, -3);
+    scene.add(rimLight);
+
+    // Group chứa Trái Đất
+    const earthGroup = new THREE.Group();
+    earthGroup.position.set(1.5, -0.2, 0);
+    scene.add(earthGroup);
+
+    // Tạo Canvas tạo họa tiết bản đồ thế giới có lưới kinh vĩ tuyến (Procedural World Map Texture)
+    const mapCanvas = document.createElement('canvas');
+    mapCanvas.width = 2048;
+    mapCanvas.height = 1024;
+    const ctx = mapCanvas.getContext('2d');
+
+    // Đại dương xanh biển sâu
+    ctx.fillStyle = '#0B203E';
+    ctx.fillRect(0, 0, mapCanvas.width, mapCanvas.height);
+
+    // Vẽ lưới kinh vĩ tuyến
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.2)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < mapCanvas.width; x += 128) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0); ctx.lineTo(x, mapCanvas.height);
+      ctx.stroke();
+    }
+    for (let y = 0; y < mapCanvas.height; y += 128) {
+      ctx.beginPath();
+      ctx.moveTo(0, y); ctx.lineTo(mapCanvas.width, y);
+      ctx.stroke();
+    }
+
+    // Vẽ đại lục đơn giản hóa
+    ctx.fillStyle = '#1E3A5F';
+    // Châu Á & Himalaya
+    ctx.beginPath();
+    ctx.ellipse(1350, 420, 320, 200, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Dãy Himalaya nổi bật màu cam đất
+    ctx.fillStyle = '#F59E0B';
+    ctx.beginPath();
+    ctx.ellipse(1380, 430, 90, 40, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Châu Âu
+    ctx.fillStyle = '#1E3A5F';
+    ctx.beginPath();
+    ctx.ellipse(980, 320, 150, 110, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Châu Phi
+    ctx.beginPath();
+    ctx.ellipse(1020, 560, 170, 220, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Châu Mỹ
+    ctx.beginPath();
+    ctx.ellipse(450, 380, 180, 240, -0.2, 0, Math.PI * 2);
+    ctx.ellipse(580, 680, 140, 200, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    const earthTexture = new THREE.CanvasTexture(mapCanvas);
+
+    // Quả cầu Trái Đất
+    const earthGeo = new THREE.SphereGeometry(2.2, 64, 64);
+    const earthMat = new THREE.MeshPhongMaterial({
+      map: earthTexture,
+      shininess: 25,
+      specular: new THREE.Color(0x224488)
+    });
+    const earthMesh = new THREE.Mesh(earthGeo, earthMat);
+    earthGroup.add(earthMesh);
+
+    // Khí quyển phát sáng ngoài (Atmosphere glow)
+    const atmosGeo = new THREE.SphereGeometry(2.28, 64, 64);
+    const atmosMat = new THREE.MeshBasicMaterial({
+      color: 0x38BDF8,
+      transparent: true,
+      opacity: 0.15,
+      side: THREE.BackSide
+    });
+    const atmosMesh = new THREE.Mesh(atmosGeo, atmosMat);
+    earthGroup.add(atmosMesh);
+
+    // Điểm Marker 3D trên bề mặt quả cầu (Everest / Himalaya)
+    // Chuyển đổi Lon/Lat sang tọa độ 3D trên hình cầu
+    function latLonToVector3(lat, lon, radius) {
+      const phi = (90 - lat) * (Math.PI / 180);
+      const theta = (lon + 180) * (Math.PI / 180);
+      return new THREE.Vector3(
+        -(radius * Math.sin(phi) * Math.cos(theta)),
+        (radius * Math.cos(phi)),
+        (radius * Math.sin(phi) * Math.sin(theta))
+      );
+    }
+
+    const pinMarkerPos = latLonToVector3(firstWp.latitude, firstWp.longitude, 2.25);
+    const markerGeo = new THREE.SphereGeometry(0.06, 16, 16);
+    const markerMat = new THREE.MeshBasicMaterial({ color: 0xF59E0B });
+    const markerMesh = new THREE.Mesh(markerGeo, markerMat);
+    markerMesh.position.copy(pinMarkerPos);
+    earthGroup.add(markerMesh);
+
+    // Xoay quả địa cầu ban đầu sao cho điểm khảo sát quay về phía Camera
+    earthGroup.rotation.y = -2.1;
+    earthGroup.rotation.x = 0.35;
+
+    // Cập nhật vị trí Pin Overlay 2D trên màn hình
+    const pinOverlay = document.getElementById('pin-overlay');
+    function updatePinScreenPos() {
+      const worldPos = new THREE.Vector3();
+      markerMesh.getWorldPosition(worldPos);
+
+      // Chiếu tọa độ 3D sang màn hình 2D
+      worldPos.project(camera);
+
+      // Kiểm tra xem điểm có nằm ở mặt trước quả cầu không
+      if (worldPos.z < 1) {
+        const x = (worldPos.x * 0.5 + 0.5) * 1920;
+        const y = -(worldPos.y * 0.5 - 0.5) * 1080;
+        pinOverlay.style.left = x + 'px';
+        pinOverlay.style.top = y + 'px';
+        pinOverlay.style.display = 'flex';
+      } else {
+        pinOverlay.style.display = 'none';
+      }
+    }
+
+    // Deterministic Step API cho Puppeteer frame capture
+    window.renderGlobeStep = function(currentTimeMs, durationMs) {
+      const progress = Math.min(1.0, Math.max(0.0, currentTimeMs / durationMs));
+      
+      // Xoay địa cầu mượt mà
+      earthGroup.rotation.y = -2.1 + progress * 0.8;
+      earthGroup.rotation.x = 0.35 + Math.sin(progress * Math.PI) * 0.08;
+
+      // Hiệu ứng zoom nhẹ camera
+      camera.position.z = 5.5 - progress * 0.5;
+
+      renderer.render(scene, camera);
+      updatePinScreenPos();
+    };
+
+    // Render ban đầu
+    renderer.render(scene, camera);
+    updatePinScreenPos();
+  </script>
+</body>
+</html>

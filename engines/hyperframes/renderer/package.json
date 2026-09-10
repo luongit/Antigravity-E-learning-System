@@ -1,0 +1,12 @@
+{
+  "name": "hyperframes-renderer",
+  "version": "2.0.0",
+  "description": "HyperFrames Puppeteer + FFmpeg frame-pipe video renderer",
+  "type": "module",
+  "scripts": {
+    "render": "node renderer.mjs"
+  },
+  "dependencies": {
+    "puppeteer": "^22.0.0"
+  }
+}

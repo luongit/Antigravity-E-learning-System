@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Virtual Lab - Mô Phỏng Mạch Điện & Định Luật Ohm (Circuit Lab POC)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background: #080D1A;
+      font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+      color: #F8FAFC;
+      position: relative;
+    }
+    #canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 1920px; height: 1080px;
+      z-index: 10;
+    }
+    .header-bar {
+      position: absolute;
+      top: 36px; left: 48px;
+      z-index: 50;
+      pointer-events: none;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(245, 158, 11, 0.12);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      border-radius: 999px;
+      padding: 6px 18px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #FBBF24;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+    .title {
+      font-size: 38px;
+      font-weight: 900;
+      color: #FFFFFF;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.8);
+    }
+    .subtitle {
+      font-size: 18px;
+      font-weight: 500;
+      color: #94A3B8;
+      margin-top: 6px;
+    }
+    .telemetry-card {
+      position: absolute;
+      bottom: 40px; right: 48px;
+      width: 480px;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 24px;
+      z-index: 50;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      pointer-events: none;
+    }
+    .telemetry-title {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #FBBF24;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .telemetry-item {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px 14px;
+    }
+    .telemetry-label {
+      font-size: 13px;
+      color: #94A3B8;
+      margin-bottom: 4px;
+    }
+    .telemetry-value {
+      font-size: 20px;
+      font-weight: 800;
+      color: #FFFFFF;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .formula-box {
+      margin-top: 14px;
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
+      color: #FDE68A;
+      text-align: center;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <div class="header-bar">
+    <div class="badge">VIRTUAL LAB • MẠCH ĐIỆN VÀ ĐIỆN TỬ (CIRCUIT LAB POC)</div>
+    <h1 class="title" id="labTitle">KHẢO SÁT ĐỊNH LUẬT OHM VÀ MẠCH ĐIỆN DC</h1>
+    <p class="subtitle" id="labSubtitle">Mô phỏng dòng electron, điện áp rơi và công suất tiêu thụ</p>
+  </div>
+
+  <canvas id="canvas" width="1920" height="1080"></canvas>
+
+  <div class="telemetry-card">
+    <div class="telemetry-title">
+      <span>THÔNG SỐ ĐO LƯỜNG (METERS)</span>
+      <span id="telStatus" style="color: #4ADE80;">MẠCH KÍN ỔN ĐỊNH</span>
+    </div>
+    <div class="telemetry-grid">
+      <div class="telemetry-item">
+        <div class="telemetry-label">Điện áp nguồn (U)</div>
+        <div class="telemetry-value" id="valVoltage" style="color: #60A5FA;">12.00 V</div>
+      </div>
+      <div class="telemetry-item">
+        <div class="telemetry-label">Dòng điện mạch (I)</div>
+        <div class="telemetry-value" id="valCurrent" style="color: #FBBF24;">0.400 A</div>
+      </div>
+      <div class="telemetry-item">
+        <div class="telemetry-label">Điện trở tương đương</div>
+        <div class="telemetry-value" id="valReq" style="color: #34D399;">30.00 Ω</div>
+      </div>
+      <div class="telemetry-item">
+        <div class="telemetry-label">Công suất mạch (P)</div>
+        <div class="telemetry-value" id="valPower" style="color: #F472B6;">4.80 W</div>
+      </div>
+    </div>
+    <div class="formula-box" id="valFormula">I = U / R_tđ | P = U · I</div>
+  </div>
+
+  <script>
+    const LAB_CONFIG = __CONFIG_JSON_PLACEHOLDER__;
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const W = 1920, H = 1080;
+
+    let voltageU = LAB_CONFIG.params?.voltage_u || 12.0;
+    const r1 = LAB_CONFIG.params?.r1 || 10.0;
+    const r2 = LAB_CONFIG.params?.r2 || 20.0;
+    const cType = LAB_CONFIG.params?.circuit_type || 'series';
+
+    if (LAB_CONFIG.title) document.getElementById('labTitle').innerText = LAB_CONFIG.title;
+    if (LAB_CONFIG.subtitle) document.getElementById('labSubtitle').innerText = LAB_CONFIG.subtitle;
+
+    let electronOffset = 0;
+
+    function drawCircuit(uVal, timeSec) {
+      ctx.clearRect(0, 0, W, H);
+
+      let req = r1 + r2;
+      if (cType === 'single') req = r1;
+      else if (cType === 'parallel') req = (r1 * r2) / (r1 + r2);
+
+      const iVal = uVal / req;
+      const pVal = uVal * iVal;
+
+      // Cập nhật DOM
+      document.getElementById('valVoltage').innerText = `${uVal.toFixed(2)} V`;
+      document.getElementById('valCurrent').innerText = `${iVal.toFixed(3)} A (${(iVal * 1000).toFixed(1)} mA)`;
+      document.getElementById('valReq').innerText = `${req.toFixed(2)} Ω`;
+      document.getElementById('valPower').innerText = `${pVal.toFixed(2)} W`;
+
+      // Khung mạch điện chính
+      const left = 360, right = 1560, top = 260, bottom = 820;
+
+      // Vẽ dây dẫn
+      ctx.strokeStyle = '#38BDF8';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.roundRect(left, top, right - left, bottom - top, 24);
+      ctx.stroke();
+
+      // Nguồn pin DC ở nhánh bên trái
+      const midY = (top + bottom) / 2;
+      ctx.fillStyle = '#080D1A';
+      ctx.fillRect(left - 20, midY - 60, 40, 120);
+
+      // Cực dương (dài) và cực âm (ngắn)
+      ctx.strokeStyle = '#EF4444';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(left - 40, midY - 20); ctx.lineTo(left + 40, midY - 20);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#60A5FA';
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.moveTo(left - 24, midY + 20); ctx.lineTo(left + 24, midY + 20);
+      ctx.stroke();
+
+      // Nhãn nguồn
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 20px Be Vietnam Pro';
+      ctx.textAlign = 'right';
+      ctx.fillText(`+`, left - 50, midY - 14);
+      ctx.fillText(`-`, left - 50, midY + 26);
+      ctx.fillText(`Nguồn DC: ${uVal.toFixed(1)}V`, left - 60, midY + 6);
+
+      // Điện trở R1 ở nhánh trên
+      const midX1 = (left + right) / 2 - 200;
+      drawResistor(ctx, midX1, top, `R₁ = ${r1}Ω`);
+
+      // Điện trở R2
+      if (cType === 'series') {
+        const midX2 = (left + right) / 2 + 200;
+        drawResistor(ctx, midX2, top, `R₂ = ${r2}Ω`);
+      }
+
+      // Ampe kế ở nhánh dưới
+      const meterX = (left + right) / 2;
+      drawMeter(ctx, meterX, bottom, 'A', `${iVal.toFixed(3)}A`);
+
+      // Dòng hạt electron chuyển động (chấm vàng sáng)
+      electronOffset = (electronOffset + iVal * 8) % 40;
+      drawElectrons(ctx, left, right, top, bottom, electronOffset);
+    }
+
+    function drawResistor(ctx, x, y, label) {
+      ctx.fillStyle = '#080D1A';
+      ctx.fillRect(x - 80, y - 24, 160, 48);
+
+      ctx.strokeStyle = '#FBBF24';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(x - 70, y - 20, 140, 40);
+
+      ctx.fillStyle = '#F8FAFC';
+      ctx.font = 'bold 18px JetBrains Mono';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, x, y + 6);
+    }
+
+    function drawMeter(ctx, x, y, symbol, value) {
+      ctx.fillStyle = '#080D1A';
+      ctx.beginPath(); ctx.arc(x, y, 44, 0, 2 * Math.PI); ctx.fill();
+
+      ctx.strokeStyle = '#34D399';
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(x, y, 40, 0, 2 * Math.PI); ctx.stroke();
+
+      ctx.fillStyle = '#34D399';
+      ctx.font = 'bold 24px Be Vietnam Pro';
+      ctx.textAlign = 'center';
+      ctx.fillText(symbol, x, y - 4);
+
+      ctx.fillStyle = '#F8FAFC';
+      ctx.font = 'bold 15px JetBrains Mono';
+      ctx.fillText(value, x, y + 20);
+    }
+
+    function drawElectrons(ctx, l, r, t, b, offset) {
+      ctx.fillStyle = '#FDE047';
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = '#FDE047';
+
+      // Vẽ các electron dọc theo chu vi hình chữ nhật
+      for (let x = l + 40 + offset; x < r - 40; x += 60) {
+        ctx.beginPath(); ctx.arc(x, t, 4, 0, 2 * Math.PI); ctx.fill();
+      }
+      for (let y = t + 40 + offset; y < b - 40; y += 60) {
+        ctx.beginPath(); ctx.arc(r, y, 4, 0, 2 * Math.PI); ctx.fill();
+      }
+      for (let x = r - 40 - offset; x > l + 40; x -= 60) {
+        ctx.beginPath(); ctx.arc(x, b, 4, 0, 2 * Math.PI); ctx.fill();
+      }
+      for (let y = b - 40 - offset; y > t + 40; y -= 60) {
+        ctx.beginPath(); ctx.arc(l, y, 4, 0, 2 * Math.PI); ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    drawCircuit(voltageU, 0);
+
+    window.renderLabStep = function(currentTimeMs, durationMs) {
+      const sec = currentTimeMs / 1000.0;
+      // Diễn hoạt tăng điện áp từ U/2 lên U*1.5 để sinh viên quan sát I tăng theo U
+      const animatedU = voltageU * (0.6 + 0.8 * (currentTimeMs / durationMs));
+      drawCircuit(animatedU, sec);
+    };
+  </script>
+</body>
+</html>

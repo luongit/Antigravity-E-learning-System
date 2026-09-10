@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>VexFlow Music Notation & Piano Synth</title>
+  <script src="__LIB_VEXFLOW_PATH__"></script>
+  <script src="__LIB_TONE_PATH__"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background-color: #0B1120;
+      font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
+      color: #F8FAFC;
+      position: relative;
+      user-select: none;
+    }
+
+    /* Tech grid background */
+    .blueprint-bg {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background-image: 
+        linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Ambient glow circles */
+    .glow-cyan {
+      position: absolute;
+      width: 600px; height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.08) 0%, transparent 70%);
+      top: 10%; left: 35%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Slide Header */
+    .slide-header {
+      position: absolute;
+      top: 50px; left: 80px; right: 80px;
+      z-index: 20;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 9999px;
+      color: #38BDF8;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .slide-title {
+      font-size: 38px;
+      font-weight: 800;
+      line-height: 1.25;
+      color: #FFFFFF;
+      letter-spacing: -0.5px;
+    }
+    .slide-subtitle {
+      font-size: 18px;
+      color: #94A3B8;
+      margin-top: 8px;
+      font-weight: 500;
+    }
+
+    /* Main Studio Container */
+    .main-container {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      padding-top: 80px;
+    }
+
+    /* Music Board */
+    .score-board {
+      width: 1600px;
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(51, 65, 85, 0.8);
+      border-radius: 20px;
+      padding: 30px 40px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      position: relative;
+    }
+
+    /* Telemetry / Info Strip */
+    .score-meta-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 20px;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.6);
+      margin-bottom: 25px;
+    }
+    .meta-group {
+      display: flex;
+      gap: 30px;
+    }
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .meta-label {
+      font-size: 14px;
+      color: #64748B;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .meta-val {
+      font-size: 16px;
+      font-weight: 700;
+      color: #38BDF8;
+    }
+    .active-note-indicator {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 8px 18px;
+      border-radius: 12px;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+    .note-pill {
+      font-size: 20px;
+      font-weight: 800;
+      color: #F59E0B;
+      min-width: 35px;
+      text-align: center;
+    }
+    .note-name-vn {
+      font-size: 15px;
+      color: #E2E8F0;
+      font-weight: 600;
+    }
+
+    /* Stave Area */
+    .stave-wrapper {
+      position: relative;
+      background: #FFFFFF;
+      border-radius: 12px;
+      padding: 20px 40px;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    #score-target {
+      width: 100%;
+      height: 200px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Playhead Cursor */
+    .playhead-cursor {
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 3px;
+      background: #EF4444;
+      box-shadow: 0 0 12px #EF4444, 0 0 24px #EF4444;
+      left: 120px;
+      z-index: 50;
+      transition: left 0.05s linear;
+      pointer-events: none;
+    }
+    .playhead-head {
+      position: absolute;
+      top: 0; left: -6px;
+      width: 15px; height: 15px;
+      background: #EF4444;
+      clip-path: polygon(0 0, 100% 0, 50% 100%);
+    }
+
+    /* Piano Keyboard Visualization */
+    .piano-section {
+      margin-top: 25px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .piano-title {
+      font-size: 13px;
+      color: #94A3B8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .piano-keyboard {
+      display: flex;
+      position: relative;
+      background: #0F172A;
+      padding: 6px;
+      border-radius: 10px;
+      border: 1px solid #334155;
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.8);
+    }
+    .white-key {
+      width: 50px;
+      height: 120px;
+      background: #F8FAFC;
+      border: 1px solid #CBD5E1;
+      border-radius: 0 0 6px 6px;
+      margin: 0 1px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      padding-bottom: 8px;
+      color: #475569;
+      font-size: 13px;
+      font-weight: 700;
+      transition: background-color 0.1s, transform 0.1s;
+    }
+    .white-key.active {
+      background: #38BDF8 !important;
+      color: #0F172A !important;
+      box-shadow: 0 0 20px #38BDF8;
+      transform: translateY(2px);
+    }
+    .black-key {
+      width: 32px;
+      height: 75px;
+      background: #1E293B;
+      border-radius: 0 0 4px 4px;
+      position: absolute;
+      top: 6px;
+      z-index: 10;
+      transition: background-color 0.1s;
+    }
+    .black-key.active {
+      background: #F59E0B !important;
+      box-shadow: 0 0 15px #F59E0B;
+    }
+
+    /* Watermark Badge */
+    .watermark {
+      position: absolute;
+      bottom: 25px; right: 40px;
+      padding: 6px 14px;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(51, 65, 85, 0.6);
+      border-radius: 8px;
+      font-size: 12px;
+      color: #64748B;
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="blueprint-bg"></div>
+  <div class="glow-cyan"></div>
+
+  <!-- Slide Header -->
+  <header class="slide-header">
+    <div class="badge" id="slide-badge">LÝ THUYẾT ÂM NHẠC & KÝ ÂM BẢN NHẠC 2D</div>
+    <h1 class="slide-title" id="slide-title">BÀI HỌC: GAM TRƯỞNG & GIAI ĐIỆU CĂN BẢN</h1>
+    <p class="slide-subtitle" id="slide-subtitle">Khóa Sol • Nhịp 4/4 • Tempo 100 BPM • Ký âm VexFlow & Diễn hoạt Piano Synth</p>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-container">
+    <div class="score-board">
+      <!-- Meta Information Strip -->
+      <div class="score-meta-bar">
+        <div class="meta-group">
+          <div class="meta-item">
+            <span class="meta-label">Khóa:</span>
+            <span class="meta-val" id="val-clef">Khóa Sol (Treble)</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Nhịp:</span>
+            <span class="meta-val" id="val-time">4/4</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Tốc độ (Tempo):</span>
+            <span class="meta-val" id="val-tempo">100 BPM</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Giọng:</span>
+            <span class="meta-val" id="val-key">Đô Trưởng (C Major)</span>
+          </div>
+        </div>
+
+        <div class="active-note-indicator">
+          <span style="font-size: 13px; color: #94A3B8; text-transform: uppercase;">Nốt hiện tại:</span>
+          <span class="note-pill" id="indicator-note">C4</span>
+          <span class="note-name-vn" id="indicator-name">(Nốt Đô)</span>
+        </div>
+      </div>
+
+      <!-- Sheet Music Stave Area -->
+      <div class="stave-wrapper">
+        <div class="playhead-cursor" id="playhead">
+          <div class="playhead-head"></div>
+        </div>
+        <div id="score-target"></div>
+      </div>
+
+      <!-- Piano Keyboard -->
+      <div class="piano-section">
+        <div class="piano-title">BÀN PHÍM PIANO MINH HỌA CAO ĐỘ</div>
+        <div class="piano-keyboard" id="piano-kb">
+          <!-- White keys C4 to C5 -->
+          <div class="white-key" data-pitch="C4"><span>C4</span><span style="font-size:10px;color:#94A3B8;">Đô</span></div>
+          <div class="black-key" data-pitch="C#4" style="left: 42px;"></div>
+          <div class="white-key" data-pitch="D4"><span>D4</span><span style="font-size:10px;color:#94A3B8;">Rê</span></div>
+          <div class="black-key" data-pitch="D#4" style="left: 94px;"></div>
+          <div class="white-key" data-pitch="E4"><span>E4</span><span style="font-size:10px;color:#94A3B8;">Mi</span></div>
+          <div class="white-key" data-pitch="F4"><span>F4</span><span style="font-size:10px;color:#94A3B8;">Pha</span></div>
+          <div class="black-key" data-pitch="F#4" style="left: 198px;"></div>
+          <div class="white-key" data-pitch="G4"><span>G4</span><span style="font-size:10px;color:#94A3B8;">Son</span></div>
+          <div class="black-key" data-pitch="G#4" style="left: 250px;"></div>
+          <div class="white-key" data-pitch="A4"><span>A4</span><span style="font-size:10px;color:#94A3B8;">La</span></div>
+          <div class="black-key" data-pitch="A#4" style="left: 302px;"></div>
+          <div class="white-key" data-pitch="B4"><span>B4</span><span style="font-size:10px;color:#94A3B8;">Si</span></div>
+          <div class="white-key" data-pitch="C5"><span>C5</span><span style="font-size:10px;color:#94A3B8;">Đô</span></div>
+        </div>
+      </div>
+
+      <div class="watermark">VEXFLOW 4.2.2 & TONE.JS WEB AUDIO</div>
+    </div>
+  </main>
+
+  <script>
+    // Dữ liệu cấu hình nốt nhạc được inject từ Python Agent
+    const musicConfig = __MUSIC_DATA_PLACEHOLDER__;
+
+    // Cập nhật tiêu đề nếu có
+    if (musicConfig.title) document.getElementById('slide-title').innerText = musicConfig.title;
+    if (musicConfig.subtitle) document.getElementById('slide-subtitle').innerText = musicConfig.subtitle;
+    if (musicConfig.clef) document.getElementById('val-clef').innerText = musicConfig.clef === 'treble' ? 'Khóa Sol (Treble)' : 'Khóa Pha (Bass)';
+    if (musicConfig.time_signature) document.getElementById('val-time').innerText = musicConfig.time_signature;
+    if (musicConfig.tempo) document.getElementById('val-tempo').innerText = musicConfig.tempo + ' BPM';
+    if (musicConfig.key) document.getElementById('val-key').innerText = musicConfig.key;
+
+    // Bản đồ tên nốt tiếng Việt
+    const vnNoteNames = {
+      'C4': '(Nốt Đô)', 'D4': '(Nốt Rê)', 'E4': '(Nốt Mi)', 'F4': '(Nốt Pha)',
+      'G4': '(Nốt Son)', 'A4': '(Nốt La)', 'B4': '(Nốt Si)', 'C5': '(Nốt Đô)'
+    };
+
+    // Danh sách vị trí các nốt nhạc để đồng bộ Playhead
+    const notePositions = [];
+
+    // Cập nhật trạng thái phím Piano và nhãn nốt
+    function setActivePianoKey(pitch) {
+      document.querySelectorAll('.white-key, .black-key').forEach(k => k.classList.remove('active'));
+      const key = document.querySelector(`[data-pitch="${pitch}"]`);
+      if (key) {
+        key.classList.add('active');
+      }
+      const indicatorNote = document.getElementById('indicator-note');
+      const indicatorName = document.getElementById('indicator-name');
+      if (indicatorNote) indicatorNote.innerText = pitch;
+      if (indicatorName) indicatorName.innerText = vnNoteNames[pitch] || '';
+    }
+
+    // API Frame-by-Frame Deterministic Stepping cho Puppeteer
+    window.manualStepMode = false;
+    window.renderMusicStep = function(currentTimeMs, durationMs) {
+      const progress = Math.min(1.0, Math.max(0.0, currentTimeMs / durationMs));
+      const minX = 80;
+      const maxX = 1420;
+      const currentX = minX + progress * (maxX - minX);
+      const playheadEl = document.getElementById('playhead');
+      if (playheadEl) playheadEl.style.left = currentX + 'px';
+
+      // Tìm nốt gần nhất với Playhead
+      if (notePositions && notePositions.length > 0) {
+        let closestNote = notePositions[0];
+        for (const n of notePositions) {
+          if (currentX >= n.x - 40) {
+            closestNote = n;
+          }
+        }
+        if (closestNote) {
+          setActivePianoKey(closestNote.pitch);
+        }
+      }
+    };
+
+    // Khởi tạo VexFlow Factory
+    try {
+      const { Factory } = Vex.Flow;
+      const vf = new Factory({
+        renderer: { elementId: 'score-target', width: 1480, height: 180 }
+      });
+
+      const score = vf.EasyScore();
+      const notesStr = musicConfig.notes_str || "C4/q, D4/q, E4/q, F4/q | G4/h, C5/h";
+      const clef = musicConfig.clef || 'treble';
+      const timeSig = musicConfig.time_signature || '4/4';
+
+      // Tự động phân chia các ô nhịp
+      let measureStrs = [];
+      if (notesStr.includes('|')) {
+        measureStrs = notesStr.split('|').map(s => s.trim()).filter(Boolean);
+      } else {
+        const tokens = notesStr.split(',').map(s => s.trim()).filter(Boolean);
+        const durMap = { 'w': 4, 'h': 2, 'q': 1, '8': 0.5, '16': 0.25 };
+        let currentGroup = [];
+        let currentBeats = 0;
+        for (const t of tokens) {
+          const durCode = (t.split('/')[1] || 'q').toLowerCase();
+          const beats = durMap[durCode] || 1;
+          if (currentBeats + beats > 4 && currentGroup.length > 0) {
+            measureStrs.push(currentGroup.join(', '));
+            currentGroup = [t];
+            currentBeats = beats;
+          } else {
+            currentGroup.push(t);
+            currentBeats += beats;
+          }
+        }
+        if (currentGroup.length > 0) {
+          measureStrs.push(currentGroup.join(', '));
+        }
+      }
+
+      if (measureStrs.length === 0) measureStrs = ["C4/q, D4/q, E4/q, F4/q", "G4/h, C5/h"];
+
+      const totalWidth = 1400;
+      const measureWidth = Math.floor(totalWidth / measureStrs.length);
+
+      measureStrs.forEach((mStr, idx) => {
+        const x = 30 + idx * measureWidth;
+        const sys = vf.System({ width: measureWidth, x: x });
+        const stave = sys.addStave({
+          voices: [score.voice(score.notes(mStr, { stem: 'up' }))]
+        });
+        if (idx === 0) {
+          stave.addClef(clef).addTimeSignature(timeSig);
+        }
+      });
+
+      vf.draw();
+    } catch (err) {
+      console.error('VexFlow Render Error:', err);
+    }
+
+    // Thiết lập vị trí ước lượng đều đặn của nốt nhạc để đồng bộ Playhead
+    const totalNotes = musicConfig.note_list ? musicConfig.note_list.length : 6;
+    const startX = 140;
+    const stepX = 1200 / (totalNotes + 1);
+    for (let i = 0; i < totalNotes; i++) {
+      notePositions.push({
+        x: startX + i * stepX,
+        pitch: musicConfig.note_list ? musicConfig.note_list[i] : 'C4'
+      });
+    }
+
+    // Khởi tạo phím đàn ban đầu
+    if (notePositions.length > 0) {
+      setActivePianoKey(notePositions[0].pitch);
+    }
+  </script>
+</body>
+</html>

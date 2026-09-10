@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Molecular Visualization - BUNI E-Learning</title>
+  <!-- Nhúng thư viện 3Dmol.js cục bộ chuẩn xác, fallback CDN tự động nếu cần -->
+  <script src="__LIB_3DMOL_PATH__"></script>
+  <script>
+    if (typeof $3Dmol === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/3Dmol/2.4.2/3Dmol-min.js"><\\/script>');
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Fira+Code:wght@400;600;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background-color: #0F172A;
+      font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      position: relative;
+      color: #F8FAFC;
+    }
+
+    /* Grid nền công nghệ cao */
+    .bg-grid {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      opacity: 0.35;
+      z-index: 1;
+    }
+
+    /* Header bài giảng */
+    .slide-header {
+      position: absolute;
+      top: 60px;
+      left: 80px;
+      right: 80px;
+      z-index: 20;
+      pointer-events: none;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 14px;
+      font-weight: 800;
+      color: #38BDF8;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .title {
+      font-size: 38px;
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: -0.5px;
+      line-height: 1.25;
+    }
+    .subtitle {
+      font-size: 18px;
+      font-weight: 500;
+      color: #94A3B8;
+      margin-top: 6px;
+    }
+
+    /* Layout chính 2 cột đối xứng chuẩn trục dọc (Y = 540px) */
+    .main-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      padding: 0 80px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 60px;
+      z-index: 10;
+      box-sizing: border-box;
+    }
+
+    /* Cột trái: Thông số hóa học & nhóm chức */
+    .info-column {
+      flex: 0.95;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      z-index: 15;
+    }
+    .info-card {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1.5px solid rgba(56, 189, 248, 0.35);
+      border-radius: 18px;
+      padding: 22px 28px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(12px);
+    }
+    .card-tag {
+      font-size: 13px;
+      font-weight: 800;
+      color: #38BDF8;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .card-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 8px;
+      line-height: 1.35;
+    }
+    .card-desc {
+      font-size: 16px;
+      font-weight: 400;
+      color: #CBD5E1;
+      line-height: 1.55;
+    }
+    .prop-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+      font-size: 15px;
+    }
+    .prop-label { color: #94A3B8; font-weight: 600; }
+    .prop-value { color: #38BDF8; font-weight: 700; font-family: 'Fira Code', monospace; }
+
+    /* Cột phải: Khung WebGL Canvas 3D */
+    .canvas-column {
+      flex: 1.35;
+      height: 620px;
+      background: radial-gradient(circle at center, rgba(30, 58, 138, 0.35) 0%, rgba(15, 23, 42, 0.9) 70%);
+      border: 2px solid rgba(56, 189, 248, 0.4);
+      border-radius: 24px;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(56, 189, 248, 0.15);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #mol-viewport {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    .canvas-badge {
+      position: absolute;
+      bottom: 20px;
+      right: 24px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #38BDF8;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      pointer-events: none;
+      z-index: 25;
+    }
+  </style>
+</head>
+<body>
+  <!-- Tech Grid Background -->
+  <svg class="bg-grid" width="1920" height="1080">
+    <defs>
+      <pattern id="gridPattern" width="60" height="60" patternUnits="userSpaceOnUse">
+        <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#38BDF8" stroke-width="0.75" stroke-opacity="0.25" />
+        <circle cx="60" cy="0" r="1.5" fill="#38BDF8" fill-opacity="0.4" />
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#gridPattern)" />
+  </svg>
+
+  <!-- Header -->
+  <div class="slide-header">
+    <div class="badge" id="slide-badge">HÓA HỌC ĐẠI CƯƠNG & CẤU TRÚC PHÂN TỬ 3D</div>
+    <h1 class="title" id="slide-title">MÔ HÌNH KHÔNG GIAN 3D: ETHANOL (C₂H₆O)</h1>
+    <div class="subtitle" id="slide-subtitle">Mô hình quả cầu & thanh nối (Ball-and-Stick) • Tối ưu hóa cấu hình năng lượng MMFF94</div>
+  </div>
+
+  <!-- Main Split Layout Centered Vertically -->
+  <div class="main-container">
+    <!-- Cột trái: Thông số hóa học -->
+    <div class="info-column" id="info-column">
+      <div class="info-card">
+        <div class="card-tag">THÔNG SỐ PHÂN TỬ</div>
+        <div class="prop-row">
+          <span class="prop-label">Công thức phân tử:</span>
+          <span class="prop-value" id="prop-formula">C2H6O</span>
+        </div>
+        <div class="prop-row">
+          <span class="prop-label">Khối lượng mol (M):</span>
+          <span class="prop-value" id="prop-weight">46.07 g/mol</span>
+        </div>
+        <div class="prop-row">
+          <span class="prop-label">Chuỗi SMILES:</span>
+          <span class="prop-value" id="prop-smiles">CCO</span>
+        </div>
+        <div class="prop-row">
+          <span class="prop-label">Tổng số nguyên tử:</span>
+          <span class="prop-value" id="prop-atoms">9 nguyên tử (2C, 6H, 1O)</span>
+        </div>
+      </div>
+
+      <div class="info-card">
+        <div class="card-tag">ĐẶC TRƯNG LIÊN KẾT & HÓA TÍNH</div>
+        <div class="card-title" id="feature-title">Nhóm Chức Hydroxyl (-OH) Phân Cực</div>
+        <div class="card-desc" id="feature-desc">
+          Liên kết O-H phân cực mạnh tạo liên kết Hydro liên phân tử, dẫn đến nhiệt độ sôi cao bất thường (78.3°C) và khả năng hòa tan vô hạn trong nước.
+        </div>
+      </div>
+    </div>
+
+    <!-- Cột phải: 3Dmol WebGL Canvas Viewport -->
+    <div class="canvas-column">
+      <div id="mol-viewport"></div>
+      <div class="canvas-badge">3DMOL.JS 3D ACCELERATED</div>
+    </div>
+  </div>
+
+  <script>
+    // Dữ liệu SDF/MOL do Agent inject vào
+    let sdfData = `__SDF_DATA_PLACEHOLDER__`;
+    let viewer = null;
+
+    function init3DViewer() {
+      const container = document.getElementById("mol-viewport");
+      viewer = $3Dmol.createViewer(container, {
+        backgroundColor: "0x0F172A",
+        antialias: true
+      });
+
+      if (sdfData && sdfData !== `__SDF_` + `DATA_PLACEHOLDER__`) {
+        viewer.addModel(sdfData, "sdf");
+      } else {
+        // Fallback tạo Ethanol mặc định nếu chưa inject SDF
+        const defaultEthanol = `
+  Mrv2108 09082622453D          
+
+  9  8  0  0  0  0            999 V2000
+    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    1.4280    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    1.9700    1.3190    0.0000 O   0  0  0  0  0  0  0  0  0  0  0  0
+   -0.3800   -0.5200    0.8900 H   0  0  0  0  0  0  0  0  0  0  0  0
+   -0.3800   -0.5200   -0.8900 H   0  0  0  0  0  0  0  0  0  0  0  0
+   -0.3800    1.0300    0.0000 H   0  0  0  0  0  0  0  0  0  0  0  0
+    1.8080   -0.5200    0.8900 H   0  0  0  0  0  0  0  0  0  0  0  0
+    1.8080   -0.5200   -0.8900 H   0  0  0  0  0  0  0  0  0  0  0  0
+    2.9300    1.2500    0.0000 H   0  0  0  0  0  0  0  0  0  0  0  0
+  1  2  1  0  0  0  0
+  2  3  1  0  0  0  0
+  1  4  1  0  0  0  0
+  1  5  1  0  0  0  0
+  1  6  1  0  0  0  0
+  2  7  1  0  0  0  0
+  2  8  1  0  0  0  0
+  3  9  1  0  0  0  0
+M  END
+`;
+        viewer.addModel(defaultEthanol, "sdf");
+      }
+
+      // Ball and Stick style chuẩn giáo dục
+      viewer.setStyle({}, {
+        stick: { radius: 0.15, colorscheme: 'Jmol' },
+        sphere: { scale: 0.28, colorscheme: 'Jmol' }
+      });
+
+      viewer.zoomTo();
+      viewer.render();
+    }
+
+    // Hàm điều khiển góc xoay chính xác theo thời gian (dùng cho Video Render)
+    window.renderFrameAtTime = function(timeSec) {
+      if (!viewer) return;
+      viewer.rotate(1.2, { x: 0, y: 1, z: 0 });
+      viewer.render();
+    };
+
+    // Tự động xoay khi xem trực tiếp trên trình duyệt
+    let startTime = performance.now();
+    function autoAnimate() {
+      if (viewer && !window.manualFrameControl) {
+        const elapsed = (performance.now() - startTime) / 1000.0;
+        window.renderFrameAtTime(elapsed);
+      }
+      requestAnimationFrame(autoAnimate);
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      init3DViewer();
+      autoAnimate();
+    });
+  </script>
+</body>
+</html>

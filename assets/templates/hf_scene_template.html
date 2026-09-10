@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=1920"/>
+  <title>HyperFrames Scene</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Fira+Code:wght@400;500;600;700&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 1920px; height: 1080px;
+      overflow: hidden;
+      background: #0F172A;
+      font-family: 'Be Vietnam Pro', 'Segoe UI', sans-serif;
+    }
+    #hf-canvas {
+      position: relative;
+      width: 1920px; height: 1080px;
+      overflow: hidden;
+    }
+    /* Responsive scale cho preview trên màn nhỏ */
+    @media (max-width: 1920px) {
+      html { transform-origin: top left; }
+    }
+    /* Cursor blink animation */
+    @keyframes hf-cursor-blink {
+      0%, 100% { opacity: 1; } 50% { opacity: 0; }
+    }
+    /* Tech grid pattern (fallback khi không load được SVG) */
+    #hf-grid-bg {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 0;
+    }
+    /* Slide content wrapper */
+    #hf-slide {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      z-index: 100;
+      display: flex; flex-direction: column;
+      padding: 44px 80px;
+    }
+    /* Header zone */
+    #hf-header {
+      z-index: 110;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 16px;
+      flex-shrink: 0;
+    }
+    #hf-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 16px; border-radius: 20px;
+      background: rgba(56,189,248,0.15);
+      border: 1px solid rgba(56,189,248,0.35);
+      color: #60A5FA; font-size: 14px; font-weight: 700;
+      margin-bottom: 8px; letter-spacing: 0.5px;
+    }
+    #hf-title {
+      font-size: 40px; font-weight: 800; color: #FFFFFF;
+      line-height: 1.2; letter-spacing: -0.5px; margin: 0;
+    }
+    #hf-slide-number {
+      padding: 8px 18px; border-radius: 12px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      font-size: 14px; font-weight: 600; color: #94A3B8;
+      flex-shrink: 0;
+    }
+    /* Content zone */
+    #hf-content {
+      flex: 1; display: flex; align-items: center;
+      padding-bottom: 60px; /* space for subtitle */
+    }
+    /* Left column (cards) */
+    #hf-cards-col {
+      flex: 1.25; display: flex; flex-direction: column;
+      gap: 20px; justify-content: center;
+    }
+    /* Right column (anchor / code) */
+    #hf-anchor-col {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    /* Cards */
+    .hf-card {
+      width: 100%;
+      background: rgba(30,41,59,0.85);
+      border: 1.5px solid #38BDF855;
+      border-radius: 16px;
+      padding: 20px 26px;
+      backdrop-filter: blur(12px);
+      display: flex; align-items: center; gap: 22px;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.5);
+      opacity: 0; visibility: hidden;
+    }
+    .hf-card-icon {
+      width: 58px; height: 58px;
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; font-weight: 800;
+      flex-shrink: 0;
+    }
+    .hf-card-body { flex: 1; }
+    .hf-card-tag {
+      font-size: 12px; font-weight: 800;
+      letter-spacing: 1px; text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .hf-card-title {
+      font-size: 24px; font-weight: 700; color: #F8FAFC;
+      line-height: 1.25; margin: 0 0 6px 0;
+    }
+    .hf-card-desc {
+      font-size: 16px; font-weight: 400; color: #CBD5E1;
+      line-height: 1.45; margin: 0;
+    }
+    /* Layout variants */
+    .hf-layout-split-left #hf-content { flex-direction: row; gap: 40px; }
+    .hf-layout-split-right #hf-content { flex-direction: row-reverse; gap: 40px; }
+    .hf-layout-center-anchor #hf-content { flex-direction: row; gap: 28px; }
+    .hf-layout-cards-grid #hf-content { flex-direction: column; }
+    .hf-layout-cards-grid #hf-cards-col { width: 100%; }
+    .hf-layout-cards-grid #hf-anchor-col { display: none; }
+    /* Radial glow background */
+    #hf-glow {
+      position: absolute; top: -200px; right: -200px;
+      width: 800px; height: 800px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%);
+      pointer-events: none; z-index: 1;
+    }
+  </style>
+</head>
+<body>
+<div id="hf-canvas">
+  <!-- Tech Grid Background -->
+  <svg id="hf-grid-bg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <pattern id="hfGridPat" width="60" height="60" patternUnits="userSpaceOnUse">
+        <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#38BDF8" stroke-width="0.75" stroke-opacity="0.22"/>
+        <circle cx="0" cy="0" r="1.5" fill="#38BDF8" fill-opacity="0.35"/>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#hfGridPat)" opacity="0.35"/>
+  </svg>
+
+  <!-- Glow effect -->
+  <div id="hf-glow"></div>
+
+  <!-- Main Slide -->
+  <div id="hf-slide">
+    <!-- Header -->
+    <div id="hf-header">
+      <div>
+        <div id="hf-badge" style="display:none"></div>
+        <h1 id="hf-title"></h1>
+      </div>
+      <div id="hf-slide-number" style="display:none"></div>
+    </div>
+
+    <!-- Content -->
+    <div id="hf-content">
+      <!-- Cards Column -->
+      <div id="hf-cards-col"></div>
+      <!-- Anchor / Code Column -->
+      <div id="hf-anchor-col"></div>
+    </div>
+  </div>
+
+  <!-- B-roll Container (created by BrollController) -->
+  <!-- Subtitle Container (created by SubtitleEngine) -->
+</div>
+
+<!-- Load all HF Components -->
+<script src="../../assets/templates/hf_components/spring_engine.js"></script>
+<script src="../../assets/templates/hf_components/timeline_engine.js"></script>
+<script src="../../assets/templates/hf_components/kinetic_typography.js"></script>
+<script src="../../assets/templates/hf_components/subtitle_engine.js"></script>
+<script src="../../assets/templates/hf_components/audio_manager.js"></script>
+<script src="../../assets/templates/hf_components/broll_controller.js"></script>
+<script src="../../assets/templates/hf_components/code_studio.js"></script>
+<script src="../../assets/templates/hf_components/visual_anchors.js"></script>
+
+<script>
+'use strict';
+
+/**
+ * HFRenderer — Global controller
+ * API:
+ *   HFRenderer.init(spec)       — Khởi tạo từ HF Scene Spec JSON
+ *   HFRenderer.seekTo(timeSec) — Render frame tại giây timeSec (Puppeteer)
+ *   HFRenderer.play()           — Preview realtime
+ *   HFRenderer.pause()
+ *   HFRenderer.isAnimating(t)  — Smart-skip check
+ */
+window.HFRenderer = (() => {
+  const HFRenderer = {};
+  let _spec = null;
+  let _scene = null;
+  let _timeline = null;
+  let _springTimeline = null;
+  let _subtitle = null;
+  let _broll = null;
+  let _audio = null;
+  let _anchorManager = null;
+  let _codeStudios = [];
+  let _currentTime = 0;
+  let _rafId = null;
+  let _playStart = null;
+
+  // ── Responsive Scale ────────────────────────────────────────────
+  function _applyResponsiveScale() {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    if (vw < 1920 || vh < 1080) {
+      const scaleX = vw / 1920;
+      const scaleY = vh / 1080;
+      const scale = Math.min(scaleX, scaleY);
+      document.documentElement.style.transform = `scale(${scale})`;
+      document.documentElement.style.transformOrigin = 'top left';
+    }
+  }
+
+  // ── Build DOM from spec ─────────────────────────────────────────
+  function _buildDOM(spec) {
+    const scene = spec.scenes && spec.scenes[0] ? spec.scenes[0] : {};
+    const settings = spec.settings || {};
+    const canvas = document.getElementById('hf-canvas');
+
+    // Background color
+    const bgColor = settings.bgColor || '#0F172A';
+    document.body.style.background = bgColor;
+    canvas.style.background = bgColor;
+
+    // Accent glow color
+    const accent = settings.accentColor || '#38BDF8';
+    document.getElementById('hf-glow').style.background =
+      `radial-gradient(circle, ${accent}18 0%, transparent 70%)`;
+
+    // Grid opacity
+    const gridBg = document.getElementById('hf-grid-bg');
+    if (gridBg) {
+      const bg = scene.background || {};
+      if (bg.type === 'none') gridBg.style.display = 'none';
+      else gridBg.style.opacity = bg.opacity ?? 0.35;
+    }
+
+    // Layout class
+    const layout = scene.layout || 'cards-grid';
+    const slide = document.getElementById('hf-slide');
+    slide.className = `hf-layout-${layout}`;
+
+    // Header
+    const badge = document.getElementById('hf-badge');
+    const titleEl = document.getElementById('hf-title');
+    const slideNum = document.getElementById('hf-slide-number');
+
+    if (scene.badge) {
+      badge.textContent = scene.badge;
+      badge.style.display = 'inline-flex';
+    }
+    if (scene.title) titleEl.textContent = scene.title;
+    if (scene.slideNumber) {
+      slideNum.textContent = scene.slideNumber;
+      slideNum.style.display = 'block';
+    }
+
+    // Cards
+    const cardsCol = document.getElementById('hf-cards-col');
+    cardsCol.innerHTML = '';
+    (scene.elements || []).filter(el => el.type === 'card' || el.type === 'text_card').forEach(el => {
+      const card = _buildCard(el, accent);
+      cardsCol.appendChild(card);
+    });
+
+    // Anchor / Code
+    const anchorCol = document.getElementById('hf-anchor-col');
+    anchorCol.innerHTML = '';
+    _codeStudios = [];
+
+    const codeEl = (scene.elements || []).find(e => e.type === 'code');
+    const anchorEl = scene.visualAnchor;
+
+    if (codeEl) {
+      const codeContainer = document.createElement('div');
+      codeContainer.id = `hf-code-${codeEl.id || 'main'}`;
+      codeContainer.style.cssText = 'width:100%;max-height:550px;';
+      anchorCol.appendChild(codeContainer);
+
+      const studio = new HFCodeStudio.CodeStudio(codeContainer, {
+        language:  codeEl.language || 'python',
+        filename:  codeEl.filename || 'main.py',
+        code:      codeEl.content  || '',
+        delay:     codeEl.animation?.delay   || 0.6,
+        duration:  codeEl.animation?.charDuration || 3.0,
+        fontSize:  19,
+      });
+      _codeStudios.push(studio);
+    } else if (anchorEl) {
+      _anchorManager = new HFVisualAnchor.VisualAnchorManager();
+      const wrapper = document.createElement('div');
+      wrapper.id = 'hf-anchor-wrapper';
+      anchorCol.appendChild(wrapper);
+      _anchorManager.mount('hf-anchor-wrapper', {
+        type:        anchorEl.type || 'buni-ecosystem',
+        imageSrc:    anchorEl.imageSrc,
+        accentColor: anchorEl.accentColor || accent,
+        label:       anchorEl.label,
+        size:        anchorEl.size || 500,
+      });
+    }
+
+    return scene;
+  }
+
+  function _buildCard(elSpec, defaultAccent) {
+    const content = elSpec.content || {};
+    const accent = elSpec.style?.accentColor || content.accentColor || defaultAccent;
+    const card = document.createElement('div');
+    card.className = 'hf-card';
+    card.id = `hf-card-${elSpec.id}`;
+    card.style.borderColor = `${accent}55`;
+
+    const iconEl = document.createElement('div');
+    iconEl.className = 'hf-card-icon';
+    iconEl.style.backgroundColor = `${accent}22`;
+    iconEl.style.border = `2px solid ${accent}`;
+    iconEl.style.color = accent;
+    iconEl.textContent = content.icon || elSpec.icon || '📌';
+
+    const body = document.createElement('div');
+    body.className = 'hf-card-body';
+
+    if (content.tag || elSpec.tag) {
+      const tag = document.createElement('div');
+      tag.className = 'hf-card-tag';
+      tag.style.color = accent;
+      tag.textContent = content.tag || elSpec.tag;
+      body.appendChild(tag);
+    }
+
+    const title = document.createElement('h2');
+    title.className = 'hf-card-title';
+    title.textContent = content.title || elSpec.title || '';
+    body.appendChild(title);
+
+    const desc = document.createElement('p');
+    desc.className = 'hf-card-desc';
+    desc.textContent = content.desc || elSpec.desc || '';
+    body.appendChild(desc);
+
+    card.appendChild(iconEl);
+    card.appendChild(body);
+    return card;
+  }
+
+  // ── Build Timelines ─────────────────────────────────────────────
+  function _buildTimelines(spec) {
+    const scene = spec.scenes?.[0] || {};
+    _timeline = new HFTimeline(spec.meta?.fps || 30);
+    _springTimeline = new HFSpring.SpringTimeline(spec.meta?.fps || 30);
+    const settings = spec.settings || {};
+    const accent = settings.accentColor || '#38BDF8';
+
+    // Header animation
+    _timeline.add('hf-header', { preset: 'fadeInDown', delay: 0.1, duration: 0.5 });
+
+    // Cards with spring or preset animations
+    (scene.elements || []).filter(e => e.type === 'card' || e.type === 'text_card').forEach((el, idx) => {
+      const anim = el.animation || {};
+      const preset = anim.preset || 'springUp';
+      const delay = anim.appearSec ?? anim.delay ?? (0.5 + idx * 0.3);
+
+      const cardId = `hf-card-${el.id}`;
+      if (preset.startsWith('spring')) {
+        _springTimeline.add(cardId, delay, { preset: 'card' });
+      } else {
+        _timeline.add(cardId, { preset, delay, duration: anim.duration || 0.55 });
+      }
+    });
+
+    // Anchor / code studio — handled separately in seekTo
+  }
+
+  // ── Build Subtitle ──────────────────────────────────────────────
+  function _buildSubtitle(spec) {
+    const srtItems = spec._srtItems || [];
+    const settings = spec.settings || {};
+    const isDark = !settings.theme?.includes('light');
+    _subtitle = new HFSubtitle.SubtitleEngine(srtItems, {
+      color: isDark ? '#FFFFFF' : '#1A202C',
+      showBackground: isDark,
+    });
+    _subtitle.init();
+  }
+
+  // ── Build B-roll ────────────────────────────────────────────────
+  function _buildBroll(spec) {
+    const scene = spec.scenes?.[0] || {};
+    _broll = new HFBroll.BrollController(scene.cutaways || []);
+  }
+
+  // ── Build Audio ─────────────────────────────────────────────────
+  function _buildAudio(spec) {
+    const globalAudio = spec.globalAudio || [];
+    const narration = globalAudio.find(a => a.id === 'narration' || a.id?.includes('narration'));
+    const bgm = globalAudio.find(a => a.id === 'bgm' || a.id?.includes('bgm') || a.id?.includes('music'));
+    const isSilent = !!window.__HF_SILENT_MODE__;
+
+    _audio = new HFAudio.AudioManager({
+      narrationSrc:    narration?.src ?? null,
+      bgmSrc:          bgm?.src ?? null,
+      narrationVolume: narration?.volume ?? 1.0,
+      bgmVolume:       bgm?.volume ?? 0.12,
+      silent:          isSilent,
+    });
+  }
+
+  // ── Public API ──────────────────────────────────────────────────
+  return {
+    /**
+     * Khởi tạo từ HF Scene Spec JSON
+     * @param {object} spec
+     */
+    init(spec) {
+      _spec = spec;
+      _scene = _buildDOM(spec);
+      _buildTimelines(spec);
+      _buildSubtitle(spec);
+      _buildBroll(spec);
+      _buildAudio(spec);
+      _applyResponsiveScale();
+      window.addEventListener('resize', _applyResponsiveScale);
+      // Seek đến frame 0
+      this.seekTo(0);
+      console.log('[HFRenderer] Initialized — scene:', _scene?.id || 'unknown');
+    },
+
+    /**
+     * Render frame tại timeSec — Puppeteer gọi hàm này
+     * @param {number} timeSec
+     */
+    seekTo(timeSec) {
+      _currentTime = timeSec;
+
+      // 1. Timeline animations
+      if (_timeline) _timeline.seekTo(timeSec);
+
+      // 2. Spring animations cho cards
+      if (_springTimeline) {
+        const canvas = document.getElementById('hf-canvas');
+        const cardEls = canvas.querySelectorAll('.hf-card[id]');
+        cardEls.forEach(el => {
+          const style = _springTimeline.getStyle(el.id, timeSec);
+          if (style && Object.keys(style).length) {
+            Object.assign(el.style, style);
+          }
+        });
+      }
+
+      // 3. Code Studio typewriter
+      _codeStudios.forEach(studio => studio.seekTo(timeSec));
+
+      // 4. Visual Anchor floating
+      if (_anchorManager) _anchorManager.updateFloating(timeSec);
+
+      // 5. B-roll cutaway
+      if (_broll) _broll.seekTo(timeSec);
+
+      // 6. Subtitle SRT lockstep
+      if (_subtitle) _subtitle.seekTo(timeSec);
+    },
+
+    /**
+     * Preview realtime
+     */
+    play() {
+      _playStart = performance.now() - _currentTime * 1000;
+      if (_audio && !window.__HF_SILENT_MODE__) {
+        _audio.init().then(() => _audio.play());
+      }
+      const loop = () => {
+        const elapsed = (performance.now() - _playStart) / 1000;
+        this.seekTo(elapsed);
+        _rafId = requestAnimationFrame(loop);
+      };
+      _rafId = requestAnimationFrame(loop);
+    },
+
+    pause() {
+      if (_rafId) cancelAnimationFrame(_rafId);
+      _rafId = null;
+      if (_audio) _audio.pause();
+    },
+
+    /**
+     * Kiểm tra có element đang animate tại timeSec không (smart-skip cho Puppeteer)
+     */
+    isAnimating(timeSec) {
+      const tl = _timeline?.isAnimating(timeSec) ?? false;
+      const sp = _springTimeline?.isAnimating(timeSec) ?? false;
+      const code = _codeStudios.some(s => s.isAnimating(timeSec));
+      const brollChange = _broll?.hasChange(timeSec, timeSec - 0.033) ?? false;
+      return tl || sp || code || brollChange;
+    },
+
+    /**
+     * Lấy text subtitle tại timeSec (để so sánh thay đổi trong Puppeteer)
+     */
+    getSubtitleText(timeSec) {
+      return _subtitle?.getCurrentText(timeSec) ?? '';
+    },
+
+    getCurrentTime() { return _currentTime; },
+    getSpec()        { return _spec; },
+  };
+})();
+
+// ── Auto-init từ window.__HF_SPEC__ (được inject bởi Python) ───────
+if (typeof window !== 'undefined') {
+  window.addEventListener('DOMContentLoaded', () => {
+    if (window.__HF_SPEC__) {
+      HFRenderer.init(window.__HF_SPEC__);
+    } else {
+      console.warn('[HFRenderer] window.__HF_SPEC__ chưa được set. Gọi HFRenderer.init(spec) thủ công.');
+    }
+  });
+}
+</script>
+</body>
+</html>

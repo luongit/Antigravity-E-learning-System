@@ -1,0 +1,168 @@
+# ==============================================================================
+# .gitignore - Hệ Thống Sản Xuất Học Liệu E-Learning Đa Nền Tảng
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. Môi trường Python & Thư viện phụ thuộc (Python & Virtual Environments)
+# ------------------------------------------------------------------------------
+__pycache__/
+*/__pycache__/
+*/**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+.venv/
+*/.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# ------------------------------------------------------------------------------
+# 2. Môi trường Node.js & Central Engines (Remotion / HyperFrames)
+# ------------------------------------------------------------------------------
+node_modules/
+*/node_modules/
+*/**/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.yarn-integrity
+
+# Bộ nhớ đệm Remotion & HyperFrames
+.remotion/
+*/.remotion/
+*/**/.remotion/
+.transcode-cache/
+*/.transcode-cache/
+*/**/.transcode-cache/
+
+# File tạm sinh ra trong runtime render của Remotion & Rendervid
+engines/remotion/runtime_props.json
+engines/remotion/public/audio/*
+!engines/remotion/public/audio/.gitkeep
+engines/remotion/public/videos/*
+!engines/remotion/public/videos/.gitkeep
+engines/rendervid/temp_slide_frames/
+engines/rendervid/temp_rendervid_frames/
+
+# ------------------------------------------------------------------------------
+# 3. Dữ liệu đầu vào do người dùng cung cấp (User Inputs)
+# Giữ lại cấu trúc thư mục rỗng (.gitkeep / README.md), không đưa file dung lượng lớn lên git
+# ------------------------------------------------------------------------------
+inputs/documents/*
+!inputs/documents/.gitkeep
+!inputs/documents/README.md
+
+inputs/video-libraries/*
+!inputs/video-libraries/.gitkeep
+!inputs/video-libraries/README.md
+
+inputs/image-libraries/*
+!inputs/image-libraries/.gitkeep
+!inputs/image-libraries/README.md
+
+inputs/images/*
+!inputs/images/.gitkeep
+!inputs/images/README.md
+
+inputs/voice_scripts/*
+!inputs/voice_scripts/.gitkeep
+!inputs/voice_scripts/README.md
+
+# ------------------------------------------------------------------------------
+# 4. Sản phẩm đầu ra học liệu (Output Artifacts)
+# Toàn bộ slide ảnh, audio mp3, srt và video mp4 sinh ra từ các đợt sản xuất
+# ------------------------------------------------------------------------------
+output/*
+!output/.gitkeep
+!output/README.md
+
+# ------------------------------------------------------------------------------
+# 5. Định dạng tệp đa phương tiện & File nén dung lượng lớn (Media & Archives)
+# ------------------------------------------------------------------------------
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.flv
+*.wmv
+
+*.mp3
+*.wav
+*.aac
+*.m4a
+*.flac
+
+*.zip
+*.tar
+*.gz
+*.rar
+*.7z
+
+# ------------------------------------------------------------------------------
+# 6. Thư mục Runtime & Bộ đệm tác vụ tạm thời (Runtime Cache, Logs & Tasks)
+# ------------------------------------------------------------------------------
+runtime/archive/*
+!runtime/archive/.gitkeep
+runtime/cache/*
+!runtime/cache/.gitkeep
+runtime/logs/*
+!runtime/logs/.gitkeep
+runtime/tasks/*
+!runtime/tasks/.gitkeep
+
+temp_*
+*.tmp
+*.temp
+
+# ------------------------------------------------------------------------------
+# 7. Hệ điều hành & Phần mềm biên tập (OS & IDE Artifacts)
+# ------------------------------------------------------------------------------
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# IDE & Editors
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# Logs
+*.log

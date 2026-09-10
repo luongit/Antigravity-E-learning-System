@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2D Physics Mechanics Simulation - BUNI E-Learning</title>
+  <!-- Nhúng thư viện Matter.js cục bộ chuẩn xác, fallback CDN -->
+  <script src="__LIB_MATTER_PATH__"></script>
+  <script>
+    if (typeof Matter === 'undefined') {
+      document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"><\\/script>');
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800;900&family=Fira+Code:wght@400;600;700&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background-color: #0F172A;
+      font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      position: relative;
+      color: #F8FAFC;
+    }
+
+    /* Grid nền công nghệ cao */
+    .bg-grid {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      opacity: 0.35;
+      z-index: 1;
+    }
+
+    /* Header bài giảng */
+    .slide-header {
+      position: absolute;
+      top: 60px;
+      left: 80px;
+      right: 80px;
+      z-index: 30;
+      pointer-events: none;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 14px;
+      font-weight: 800;
+      color: #38BDF8;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .title {
+      font-size: 38px;
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: -0.5px;
+      line-height: 1.25;
+    }
+    .subtitle {
+      font-size: 18px;
+      font-weight: 500;
+      color: #94A3B8;
+      margin-top: 6px;
+    }
+
+    /* Cột thông số vật lý (Telemetry Card) góc trái */
+    .telemetry-card {
+      position: absolute;
+      top: 210px;
+      left: 80px;
+      width: 440px;
+      background: rgba(15, 23, 42, 0.88);
+      border: 1.5px solid rgba(56, 189, 248, 0.4);
+      border-radius: 20px;
+      padding: 24px 28px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(14px);
+      z-index: 25;
+      pointer-events: none;
+    }
+    .card-tag {
+      font-size: 13px;
+      font-weight: 800;
+      color: #38BDF8;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .prop-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      font-size: 15px;
+    }
+    .prop-label { color: #94A3B8; font-weight: 600; }
+    .prop-value { color: #38BDF8; font-weight: 700; font-family: 'Fira Code', monospace; }
+
+    .formula-box {
+      margin-top: 14px;
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 14px;
+      color: #FDE68A;
+      line-height: 1.45;
+      font-family: 'Fira Code', monospace;
+    }
+
+    /* Canvas Viewport */
+    #physics-canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1920px;
+      height: 1080px;
+      z-index: 10;
+    }
+
+    .engine-badge {
+      position: absolute;
+      bottom: 24px;
+      right: 32px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #38BDF8;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      pointer-events: none;
+      z-index: 30;
+    }
+  </style>
+</head>
+<body>
+  <!-- Tech Grid Background -->
+  <svg class="bg-grid" width="1920" height="1080">
+    <defs>
+      <pattern id="gridPattern" width="60" height="60" patternUnits="userSpaceOnUse">
+        <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#38BDF8" stroke-width="0.75" stroke-opacity="0.25" />
+        <circle cx="60" cy="0" r="1.5" fill="#38BDF8" fill-opacity="0.4" />
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#gridPattern)" />
+  </svg>
+
+  <!-- Slide Header -->
+  <div class="slide-header">
+    <div class="badge" id="slide-badge">VẬT LÝ CƠ HỌC ĐẠI CƯƠNG & ĐỘNG LỰC HỌC 2D</div>
+    <h1 class="title" id="slide-title">MÔ PHỎNG CHUYỂN ĐỘNG NÉM XIÊN TRONG TRỌNG TRƯỜNG</h1>
+    <div class="subtitle" id="slide-subtitle">Khảo sát quỹ đạo Parabol • Định luật bảo toàn cơ năng • Va chạm đàn hồi với mặt sàn</div>
+  </div>
+
+  <!-- Telemetry Card -->
+  <div class="telemetry-card" id="telemetry-card">
+    <div class="card-tag">THÔNG SỐ KHẢO SÁT</div>
+    <div class="prop-row">
+      <span class="prop-label">Vận tốc ban đầu (v₀):</span>
+      <span class="prop-value" id="prop-v0">20.0 m/s</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-label">Góc ném (α):</span>
+      <span class="prop-value" id="prop-angle">45.0°</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-label">Tầm bay cao (Hmax):</span>
+      <span class="prop-value" id="prop-hmax">10.20 m</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-label">Tầm bay xa (Lmax):</span>
+      <span class="prop-value" id="prop-lmax">40.82 m</span>
+    </div>
+    <div class="prop-row">
+      <span class="prop-label">Hệ số đàn hồi (e):</span>
+      <span class="prop-value" id="prop-restitution">0.75</span>
+    </div>
+    <div class="formula-box" id="formula-box">
+      y = x·tan(α) - (g·x²) / (2·v₀²·cos²(α))<br/>
+      Hmax = (v₀²·sin²(α)) / (2·g)
+    </div>
+  </div>
+
+  <div id="physics-canvas-container"></div>
+  <div class="engine-badge">MATTER.JS RIGID BODY PHYSICS 2D</div>
+
+  <script>
+    const { Engine, Render, Runner, Bodies, Composite, Constraint, Vector, Body, Events } = Matter;
+
+    // Cấu hình vật lý do Agent inject
+    const physicsConfig = __PHYSICS_CONFIG_PLACEHOLDER__;
+
+    // 1. Tạo Engine
+    const engine = Engine.create();
+    engine.gravity.y = physicsConfig.gravity !== undefined ? physicsConfig.gravity : 1.0;
+    engine.gravity.scale = physicsConfig.gravityScale !== undefined ? physicsConfig.gravityScale : 0.001;
+
+    // 2. Tạo Renderer Full HD
+    const container = document.getElementById("physics-canvas-container");
+    const render = Render.create({
+      element: container,
+      engine: engine,
+      options: {
+        width: 1920,
+        height: 1080,
+        wireframes: false,
+        background: 'transparent',
+        showVelocity: false,
+        showAngleIndicator: false
+      }
+    });
+
+    // 3. Sàn nâng & Giới hạn biên (Walls & Floor)
+    const floorY = physicsConfig.floorY || 960;
+    const ground = Bodies.rectangle(960, floorY + 25, 1920, 50, {
+      isStatic: true,
+      render: {
+        fillStyle: '#1E293B',
+        strokeStyle: '#38BDF8',
+        lineWidth: 2
+      }
+    });
+
+    // Vạch đo khoảng cách trên mặt sàn (Ruler markings)
+    const rulerMarkers = [];
+    for (let x = 100; x <= 1820; x += 100) {
+      rulerMarkers.push(Bodies.rectangle(x, floorY + 6, 2, 12, {
+        isStatic: true,
+        render: { fillStyle: '#64748B' }
+      }));
+    }
+
+    const leftWall = Bodies.rectangle(-25, 540, 50, 1080, { isStatic: true });
+    const rightWall = Bodies.rectangle(1945, 540, 50, 1080, { isStatic: true });
+    Composite.add(engine.world, [ground, leftWall, rightWall, ...rulerMarkers]);
+
+    // 4. Thêm các vật thể từ physicsConfig
+    const createdBodies = [];
+    const trailPoints = [];
+
+    (physicsConfig.bodies || []).forEach(b => {
+      let body;
+      const opts = {
+        restitution: b.restitution !== undefined ? b.restitution : 0.75,
+        friction: b.friction !== undefined ? b.friction : 0.05,
+        frictionAir: b.frictionAir !== undefined ? b.frictionAir : 0.001,
+        density: b.density || 0.001,
+        isStatic: b.isStatic || false,
+        render: {
+          fillStyle: b.color || '#38BDF8',
+          strokeStyle: b.strokeColor || '#FFFFFF',
+          lineWidth: b.lineWidth || 1.5
+        }
+      };
+
+      if (b.type === 'circle') {
+        body = Bodies.circle(b.x, b.y, b.radius || 25, opts);
+      } else if (b.type === 'rectangle') {
+        body = Bodies.rectangle(b.x, b.y, b.width || 60, b.height || 60, opts);
+      }
+
+      if (b.initialVelocity) {
+        Body.setVelocity(body, Vector.create(b.initialVelocity.x, b.initialVelocity.y));
+      }
+      if (b.initialAngularVelocity) {
+        Body.setAngularVelocity(body, b.initialAngularVelocity);
+      }
+
+      createdBodies.push(body);
+      Composite.add(engine.world, [body]);
+    });
+
+    // 5. Vẽ Quỹ Đạo Chuyển Động (Trajectory Tracing)
+    Events.on(render, 'afterRender', () => {
+      const ctx = render.context;
+      if (!ctx || createdBodies.length === 0) return;
+
+      const mainBody = createdBodies[0];
+      if (trailPoints.length === 0 || Vector.magnitude(Vector.sub(trailPoints[trailPoints.length - 1], mainBody.position)) > 8) {
+        trailPoints.push({ x: mainBody.position.x, y: mainBody.position.y });
+        if (trailPoints.length > 250) trailPoints.shift();
+      }
+
+      // Vẽ vệt sáng quỹ đạo
+      ctx.beginPath();
+      for (let i = 0; i < trailPoints.length; i++) {
+        const pt = trailPoints[i];
+        if (i === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([6, 6]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Vẽ véc-tơ vận tốc hiện thời
+      const vel = mainBody.velocity;
+      const speed = Vector.magnitude(vel);
+      if (speed > 0.5) {
+        const arrowLen = Math.min(speed * 6, 80);
+        const normVel = Vector.normalise(vel);
+        const endX = mainBody.position.x + normVel.x * arrowLen;
+        const endY = mainBody.position.y + normVel.y * arrowLen;
+
+        ctx.beginPath();
+        ctx.moveTo(mainBody.position.x, mainBody.position.y);
+        ctx.lineTo(endX, endY);
+        ctx.strokeStyle = '#F59E0B';
+        ctx.lineWidth = 3.5;
+        ctx.stroke();
+
+        // Mũi tên
+        const angle = Math.atan2(normVel.y, normVel.x);
+        ctx.beginPath();
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(endX - 10 * Math.cos(angle - Math.PI / 6), endY - 10 * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(endX - 10 * Math.cos(angle + Math.PI / 6), endY - 10 * Math.sin(angle + Math.PI / 6));
+        ctx.fillStyle = '#F59E0B';
+        ctx.fill();
+      }
+    });
+
+    Render.run(render);
+
+    // API phục vụ render deterministic từng frame video bằng Puppeteer
+    window.renderPhysicsStep = function(dtMs = 16.67) {
+      Engine.update(engine, dtMs);
+      Render.world(render);
+    };
+
+    // Runner cho chế độ xem trực tiếp
+    let runner = null;
+    window.startLivePhysics = function() {
+      if (!runner) {
+        runner = Runner.create();
+        Runner.run(runner, engine);
+      }
+    };
+
+    // Tự động chạy nếu xem trên browser thông thường
+    if (!window.manualStepMode) {
+      window.startLivePhysics();
+    }
+  </script>
+</body>
+</html>

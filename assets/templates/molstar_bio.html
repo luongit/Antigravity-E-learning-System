@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sinh Học Phân Tử 3D - Molstar & RCSB PDB Engine</title>
+  
+  <!-- Thư viện 3D WebGL Phân tử Offline -->
+  <script src="__LIB_3DMOL_PATH__"></script>
+
+  <style>
+    :root {
+      --bg-space: #0B0F19;
+      --card-bg: rgba(15, 23, 42, 0.82);
+      --card-border: rgba(56, 189, 248, 0.28);
+      --accent-cyan: #38BDF8;
+      --accent-emerald: #34D399;
+      --accent-rose: #FB7185;
+      --accent-amber: #FBBF24;
+      --accent-indigo: #818CF8;
+      --text-main: #F8FAFC;
+      --text-muted: #94A3B8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background-color: var(--bg-space);
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      color: var(--text-main);
+      position: relative;
+    }
+
+    /* Cosmic Blueprint Grid Background */
+    .blueprint-grid {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+        radial-gradient(circle at 65% 50%, rgba(14, 165, 233, 0.12) 0%, transparent 60%);
+      background-size: 40px 40px, 40px 40px, 100% 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Header Container */
+    .slide-header {
+      position: absolute;
+      top: 36px;
+      left: 60px;
+      right: 60px;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .header-left {
+      max-width: 1280px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+      backdrop-filter: blur(8px);
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 10px var(--accent-emerald);
+    }
+
+    .title {
+      font-size: 38px;
+      font-weight: 800;
+      line-height: 1.2;
+      color: #FFFFFF;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      font-size: 18px;
+      color: var(--text-muted);
+      font-weight: 400;
+      letter-spacing: 0.3px;
+    }
+
+    /* PDB Status Badge (Top Right) */
+    .pdb-badge-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 12px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    .pdb-id-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .pdb-id-val {
+      font-size: 26px;
+      font-weight: 900;
+      color: var(--accent-cyan);
+      font-family: 'Consolas', 'Courier New', monospace;
+      letter-spacing: 1.5px;
+    }
+
+    /* Left Telemetry HUD Card */
+    .telemetry-card {
+      position: absolute;
+      top: 175px;
+      left: 60px;
+      width: 440px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 24px 26px;
+      z-index: 10;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .telemetry-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 10px;
+      margin-bottom: 4px;
+    }
+
+    .telemetry-header h3 {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10B981;
+      box-shadow: 0 0 8px #10B981;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+    }
+
+    .stat-label {
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .stat-val {
+      color: #FFFFFF;
+      font-weight: 700;
+      font-family: 'Consolas', monospace;
+    }
+
+    .stat-val.highlight {
+      color: var(--accent-amber);
+    }
+
+    .stat-val.cyan {
+      color: var(--accent-cyan);
+    }
+
+    /* Nitrogenous Base Legend Card */
+    .legend-card {
+      position: absolute;
+      bottom: 60px;
+      left: 60px;
+      width: 440px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 20px 24px;
+      z-index: 10;
+      backdrop-filter: blur(14px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    .legend-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: #E2E8F0;
+      font-weight: 600;
+    }
+
+    .color-pill {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    /* 3D WebGL Canvas Viewport */
+    #viewport-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 1920px;
+      height: 1080px;
+      z-index: 2;
+    }
+
+    #gldiv {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    /* Bottom Watermark Badge */
+    .watermark-tag {
+      position: absolute;
+      bottom: 24px;
+      right: 40px;
+      z-index: 10;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      backdrop-filter: blur(6px);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Blueprint Lưới Kỹ Thuật -->
+  <div class="blueprint-grid"></div>
+
+  <!-- Tiêu Đề Bài Giảng Chuẩn Quy Cách -->
+  <header class="slide-header">
+    <div class="header-left">
+      <div class="badge">
+        <span class="badge-dot"></span>
+        <span id="header-badge-txt">SINH HỌC PHÂN TỬ & CẤU TRÚC 3D (MOLSTAR / RCSB PDB)</span>
+      </div>
+      <h1 class="title" id="slide-title">CẤU TRÚC KHÔNG GIAN 3D CỦA CHUỖI XOẮN ĐÔI ADN (B-FORM)</h1>
+      <p class="subtitle" id="slide-subtitle">Mô hình Watson &amp; Crick • Cặp bazơ A-T (2 liên kết H), G-X (3 liên kết H) • Chu kỳ xoắn 3.4 nm</p>
+    </div>
+
+    <!-- PDB Info Badge -->
+    <div class="pdb-badge-card">
+      <span class="pdb-id-title">RCSB PDB ID</span>
+      <span class="pdb-id-val" id="badge-pdb-id">1BNA</span>
+    </div>
+  </header>
+
+  <!-- Left Telemetry HUD Card -->
+  <aside class="telemetry-card">
+    <div class="telemetry-header">
+      <h3>THÔNG SỐ CẤU TRÚC SINH HỌC</h3>
+      <div class="live-dot"></div>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Mã PDB ID:</span>
+      <span class="stat-val cyan" id="stat-pdb-id">1BNA</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Tên phân tử:</span>
+      <span class="stat-val" id="stat-mol-name">ADN B-form (Dodecamer)</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Chế độ hiển thị:</span>
+      <span class="stat-val highlight" id="stat-representation">Cartoon &amp; Stick</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Cặp bazơ bổ sung:</span>
+      <span class="stat-val" id="stat-pairing">A = T (2 H) • G ≡ X (3 H)</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Đường kính xoắn:</span>
+      <span class="stat-val">2.0 nm (20.0 Å)</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Chu kỳ xoắn:</span>
+      <span class="stat-val highlight">10 cặp bazơ / 3.4 nm</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Góc quay quan sát:</span>
+      <span class="stat-val cyan" id="stat-angle">0.0°</span>
+    </div>
+  </aside>
+
+  <!-- Nitrogenous Base Legend Card -->
+  <div class="legend-card">
+    <div class="legend-title">
+      <span>BẢNG MÀU PHÂN TỬ & BAZƠ NITƠ</span>
+    </div>
+    <div class="legend-grid">
+      <div class="legend-item">
+        <span class="color-pill" style="background: #38BDF8; box-shadow: 0 0 8px rgba(56,189,248,0.6);"></span>
+        <span>Adenin (A)</span>
+      </div>
+      <div class="legend-item">
+        <span class="color-pill" style="background: #FB7185; box-shadow: 0 0 8px rgba(251,113,133,0.6);"></span>
+        <span>Thymin (T)</span>
+      </div>
+      <div class="legend-item">
+        <span class="color-pill" style="background: #34D399; box-shadow: 0 0 8px rgba(52,211,153,0.6);"></span>
+        <span>Guanin (G)</span>
+      </div>
+      <div class="legend-item">
+        <span class="color-pill" style="background: #FBBF24; box-shadow: 0 0 8px rgba(251,191,36,0.6);"></span>
+        <span>Xitôzin (C/X)</span>
+      </div>
+      <div class="legend-item" style="grid-column: span 2;">
+        <span class="color-pill" style="background: #818CF8; box-shadow: 0 0 8px rgba(129,140,248,0.6);"></span>
+        <span>Khung Đường - Phốtphat (Backbone)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3D WebGL Canvas Container -->
+  <div id="viewport-container">
+    <div id="gldiv"></div>
+  </div>
+
+  <!-- Watermark Engine Badge -->
+  <div class="watermark-tag">MOLSTAR &amp; RCSB PDB 3D ENGINE</div>
+
+  <!-- Cấu Hình Dữ Liệu & Khởi Tạo Phân Tử -->
+  <script>
+    const bioConfig = __BIO_CONFIG_PLACEHOLDER__;
+    const pdbContent = `__PDB_CONTENT_PLACEHOLDER__`;
+
+    // Cập nhật UI từ cấu hình
+    if (bioConfig.title) document.getElementById('slide-title').textContent = bioConfig.title;
+    if (bioConfig.subtitle) document.getElementById('slide-subtitle').textContent = bioConfig.subtitle;
+    if (bioConfig.pdb_id) {
+      document.getElementById('badge-pdb-id').textContent = bioConfig.pdb_id.toUpperCase();
+      document.getElementById('stat-pdb-id').textContent = bioConfig.pdb_id.toUpperCase();
+    }
+    if (bioConfig.molecule_name) document.getElementById('stat-mol-name').textContent = bioConfig.molecule_name;
+    if (bioConfig.representation) document.getElementById('stat-representation').textContent = bioConfig.representation;
+    if (bioConfig.pairing_info) document.getElementById('stat-pairing').textContent = bioConfig.pairing_info;
+
+    // Khởi tạo 3Dmol Viewer
+    let glviewer = null;
+    try {
+      const element = document.getElementById('gldiv');
+      const config = { backgroundColor: '#0B0F19' };
+      glviewer = $3Dmol.createViewer(element, config);
+
+      if (pdbContent && pdbContent.trim().length > 0) {
+        glviewer.addModel(pdbContent, "pdb");
+      }
+
+      // Thiết lập style hiển thị phù hợp
+      const rep = (bioConfig.representation || "ball-and-stick").toLowerCase();
+      if (rep.includes("cartoon")) {
+        glviewer.setStyle({}, {
+          cartoon: { color: 'spectrum', thickness: 0.6 },
+          stick: { radius: 0.15, colorscheme: 'Jmol' }
+        });
+      } else if (rep.includes("sphere") || rep.includes("spacefill")) {
+        glviewer.setStyle({}, { sphere: { radius: 1.0, colorscheme: 'Jmol' } });
+      } else {
+        // ball-and-stick mặc định
+        glviewer.setStyle({}, {
+          stick: { radius: 0.22, colorscheme: 'Jmol' },
+          sphere: { radius: 0.45, colorscheme: 'Jmol' }
+        });
+      }
+
+      // Tô màu các bazơ đặc trưng cho ADN nếu có
+      glviewer.setStyle({ resn: 'DA' }, { stick: { color: '#38BDF8', radius: 0.25 }, sphere: { color: '#38BDF8', radius: 0.45 } });
+      glviewer.setStyle({ resn: 'DT' }, { stick: { color: '#FB7185', radius: 0.25 }, sphere: { color: '#FB7185', radius: 0.45 } });
+      glviewer.setStyle({ resn: 'DG' }, { stick: { color: '#34D399', radius: 0.25 }, sphere: { color: '#34D399', radius: 0.45 } });
+      glviewer.setStyle({ resn: 'DC' }, { stick: { color: '#FBBF24', radius: 0.25 }, sphere: { color: '#FBBF24', radius: 0.45 } });
+
+      // Định tâm và dịch chuyển sang phải để nhường chỗ cho bảng HUD bên trái
+      glviewer.zoomTo();
+      glviewer.translate(220, 0);
+      glviewer.render();
+    } catch (err) {
+      console.error("Lỗi khởi tạo 3Dmol viewer:", err);
+    }
+
+    // Deterministic Step-by-Step API cho Puppeteer Ghi Hình Video Khung Hình Chuẩn Xác
+    let currentAngle = 0;
+    window.renderBioStep = function(currentMs, durationMs) {
+      if (!glviewer) return;
+      const progress = Math.min(Math.max(currentMs / durationMs, 0), 1);
+      const targetAngle = progress * 360.0;
+      const deltaAngle = targetAngle - currentAngle;
+      currentAngle = targetAngle;
+
+      glviewer.rotate(deltaAngle, { x: 0, y: 1, z: 0 });
+      glviewer.render();
+
+      const angleElem = document.getElementById('stat-angle');
+      if (angleElem) {
+        angleElem.textContent = targetAngle.toFixed(1) + '°';
+      }
+    };
+  </script>
+</body>
+</html>

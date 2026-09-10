@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Virtual Lab - Mô Phỏng Khúc Xạ & Phản Xạ Ánh Sáng (Ray Optics)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background: #090D16;
+      font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+      color: #F8FAFC;
+      position: relative;
+    }
+    #canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 1920px; height: 1080px;
+      z-index: 10;
+    }
+    /* Header HUD */
+    .header-bar {
+      position: absolute;
+      top: 36px; left: 48px;
+      z-index: 50;
+      pointer-events: none;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 999px;
+      padding: 6px 18px;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: #38BDF8;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+    .title {
+      font-size: 38px;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      color: #FFFFFF;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.8);
+    }
+    .subtitle {
+      font-size: 18px;
+      font-weight: 500;
+      color: #94A3B8;
+      margin-top: 6px;
+    }
+    /* Telemetry Card */
+    .telemetry-card {
+      position: absolute;
+      bottom: 40px; right: 48px;
+      width: 480px;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 24px;
+      z-index: 50;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      pointer-events: none;
+    }
+    .telemetry-title {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #38BDF8;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .telemetry-item {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px 14px;
+    }
+    .telemetry-label {
+      font-size: 13px;
+      color: #94A3B8;
+      margin-bottom: 4px;
+    }
+    .telemetry-value {
+      font-size: 20px;
+      font-weight: 800;
+      color: #FFFFFF;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .formula-box {
+      margin-top: 14px;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      color: #7DD3FC;
+      text-align: center;
+      font-weight: 700;
+    }
+    /* Environment Labels */
+    .env-label {
+      position: absolute;
+      left: 48px;
+      z-index: 50;
+      font-size: 22px;
+      font-weight: 800;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .env-label-top { top: 380px; color: #E2E8F0; }
+    .env-label-bottom { top: 680px; color: #38BDF8; }
+  </style>
+</head>
+<body>
+  <div class="header-bar">
+    <div class="badge">VIRTUAL LAB • QUANG HỌC TIA SÁNG (RAY OPTICS)</div>
+    <h1 class="title" id="labTitle">ĐỊNH LUẬT KHÚC XẠ ÁNH SÁNG (ĐỊNH LUẬT SNELL)</h1>
+    <p class="subtitle" id="labSubtitle">Khảo sát góc tới, góc khúc xạ và hiện tượng phản xạ toàn phần</p>
+  </div>
+
+  <div class="env-label env-label-top" id="envLabelTop">Môi trường 1: Không khí (n₁ = 1.000)</div>
+  <div class="env-label env-label-bottom" id="envLabelBottom">Môi trường 2: Nước (n₂ = 1.333)</div>
+
+  <canvas id="canvas" width="1920" height="1080"></canvas>
+
+  <div class="telemetry-card">
+    <div class="telemetry-title">
+      <span>DỮ LIỆU VIỄN TRẮC (TELEMETRY)</span>
+      <span id="telStatus" style="color: #4ADE80;">KHÚC XẠ CHUẨN</span>
+    </div>
+    <div class="telemetry-grid">
+      <div class="telemetry-item">
+        <div class="telemetry-label">Góc tới (θ₁)</div>
+        <div class="telemetry-value" id="valTheta1" style="color: #F87171;">45.0°</div>
+      </div>
+      <div class="telemetry-item">
+        <div class="telemetry-label">Góc khúc xạ (θ₂)</div>
+        <div class="telemetry-value" id="valTheta2" style="color: #60A5FA;">32.0°</div>
+      </div>
+      <div class="telemetry-item">
+        <div class="telemetry-label">Góc phản xạ (θ_r)</div>
+        <div class="telemetry-value" id="valThetaR" style="color: #FBBF24;">45.0°</div>
+      </div>
+      <div class="telemetry-item">
+        <div class="telemetry-label">Góc tới hạn (θ_c)</div>
+        <div class="telemetry-value" id="valThetaC">48.6°</div>
+      </div>
+    </div>
+    <div class="formula-box" id="valFormula">n₁ · sin(θ₁) = n₂ · sin(θ₂)</div>
+  </div>
+
+  <script>
+    // Dữ liệu cấu hình được chèn tự động từ Python
+    const LAB_CONFIG = __CONFIG_JSON_PLACEHOLDER__;
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const W = 1920, H = 1080;
+    const CX = 960, CY = 540; // Gốc tọa độ ranh giới tại tâm màn hình
+
+    let currentTheta1 = LAB_CONFIG.params?.theta1_deg || 45.0;
+    const n1 = LAB_CONFIG.params?.n1 || 1.00;
+    const n2 = LAB_CONFIG.params?.n2 || 1.333;
+    const mat1Name = LAB_CONFIG.params?.mat1_name || 'Không khí';
+    const mat2Name = LAB_CONFIG.params?.mat2_name || 'Nước';
+    const mat2Color = LAB_CONFIG.params?.mat2_color || 'rgba(56, 189, 248, 0.22)';
+
+    // Cập nhật DOM
+    if (LAB_CONFIG.title) document.getElementById('labTitle').innerText = LAB_CONFIG.title;
+    if (LAB_CONFIG.subtitle) document.getElementById('labSubtitle').innerText = LAB_CONFIG.subtitle;
+    document.getElementById('envLabelTop').innerText = `Môi trường 1: ${mat1Name} (n₁ = ${n1.toFixed(3)})`;
+    document.getElementById('envLabelBottom').innerText = `Môi trường 2: ${mat2Name} (n₂ = ${n2.toFixed(3)})`;
+
+    function computeOptics(theta1Deg) {
+      const rad1 = (theta1Deg * Math.PI) / 180;
+      const sinTheta1 = Math.sin(rad1);
+      const sinTheta2 = (n1 / n2) * sinTheta1;
+
+      const isTir = sinTheta2 > 1.0;
+      let theta2Deg = null;
+      let thetaCDeg = null;
+      if (n1 > n2) thetaCDeg = (Math.asin(n2 / n1) * 180) / Math.PI;
+
+      let reflP = 0.08, refrP = 0.92;
+      if (isTir) {
+        reflP = 1.0;
+        refrP = 0.0;
+      } else {
+        const rad2 = Math.asin(sinTheta2);
+        theta2Deg = (rad2 * 180) / Math.PI;
+        const r0 = Math.pow((n1 - n2) / (n1 + n2), 2);
+        reflP = r0 + (1 - r0) * Math.pow(1 - Math.cos(rad1), 5);
+        refrP = 1.0 - reflP;
+      }
+
+      return { theta1Deg, theta2Deg, isTir, thetaCDeg, reflP, refrP };
+    }
+
+    function updateTelemetry(data) {
+      document.getElementById('valTheta1').innerText = `${data.theta1Deg.toFixed(1)}°`;
+      document.getElementById('valThetaR').innerText = `${data.theta1Deg.toFixed(1)}°`;
+      document.getElementById('valTheta2').innerText = data.isTir ? 'Toàn phần' : `${data.theta2Deg.toFixed(1)}°`;
+      document.getElementById('valThetaC').innerText = data.thetaCDeg ? `${data.thetaCDeg.toFixed(1)}°` : 'Không có';
+      
+      const statusEl = document.getElementById('telStatus');
+      if (data.isTir) {
+        statusEl.innerText = 'PHẢN XẠ TOÀN PHẦN';
+        statusEl.style.color = '#EF4444';
+      } else {
+        statusEl.innerText = 'KHÚC XẠ & PHẢN XẠ';
+        statusEl.style.color = '#4ADE80';
+      }
+    }
+
+    function draw(theta1Deg) {
+      const data = computeOptics(theta1Deg);
+      updateTelemetry(data);
+
+      ctx.clearRect(0, 0, W, H);
+
+      // 1. Môi trường 2 (nửa dưới)
+      ctx.fillStyle = mat2Color;
+      ctx.fillRect(0, CY, W, H - CY);
+
+      // 2. Đường phân cách ranh giới (Interface)
+      ctx.strokeStyle = '#38BDF8';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, CY);
+      ctx.lineTo(W, CY);
+      ctx.stroke();
+
+      // 3. Pháp tuyến (Normal line)
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath();
+      ctx.moveTo(CX, 80);
+      ctx.lineTo(CX, H - 80);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 4. Thước đo góc tròn (Protractor)
+      const R = 320;
+      ctx.save();
+      ctx.translate(CX, CY);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, R, 0, 2 * Math.PI);
+      ctx.stroke();
+
+      // Các vạch chia góc
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.font = '12px JetBrains Mono, sans-serif';
+      ctx.textAlign = 'center';
+      for (let deg = 0; deg < 360; deg += 10) {
+        const rad = (deg * Math.PI) / 180;
+        const tickLen = (deg % 30 === 0) ? 16 : 8;
+        const x1 = (R - tickLen) * Math.cos(rad);
+        const y1 = (R - tickLen) * Math.sin(rad);
+        const x2 = R * Math.cos(rad);
+        const y2 = R * Math.sin(rad);
+
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+
+        if (deg % 30 === 0 && deg !== 0 && deg !== 180) {
+          const tx = (R - 30) * Math.cos(rad);
+          const ty = (R - 30) * Math.sin(rad) + 4;
+          // Hiển thị góc theo pháp tuyến (0-90)
+          let normalDeg = Math.abs(90 - (deg % 180));
+          ctx.fillText(`${normalDeg}°`, tx, ty);
+        }
+      }
+      ctx.restore();
+
+      // 5. Tia tới (Incident Ray)
+      const rayLen = 420;
+      const rad1 = (data.theta1Deg * Math.PI) / 180;
+      const incStartX = CX - rayLen * Math.sin(rad1);
+      const incStartY = CY - rayLen * Math.cos(rad1);
+
+      // Glow tia tới
+      ctx.save();
+      ctx.shadowBlur = 18;
+      ctx.shadowColor = '#EF4444';
+      ctx.strokeStyle = '#EF4444';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(incStartX, incStartY);
+      ctx.lineTo(CX, CY);
+      ctx.stroke();
+
+      // Mũi tên chỉ hướng tia tới
+      const midIncX = (incStartX + CX) / 2;
+      const midIncY = (incStartY + CY) / 2;
+      drawArrow(ctx, incStartX, incStartY, midIncX, midIncY, '#EF4444');
+      ctx.restore();
+
+      // 6. Tia phản xạ (Reflected Ray)
+      const reflEndX = CX + rayLen * Math.sin(rad1);
+      const reflEndY = CY - rayLen * Math.cos(rad1);
+
+      ctx.save();
+      ctx.shadowBlur = 14;
+      ctx.shadowColor = '#FBBF24';
+      ctx.strokeStyle = `rgba(251, 191, 36, ${Math.max(0.3, data.reflP)})`;
+      ctx.lineWidth = Math.max(2, 5 * data.reflP);
+      ctx.beginPath();
+      ctx.moveTo(CX, CY);
+      ctx.lineTo(reflEndX, reflEndY);
+      ctx.stroke();
+      drawArrow(ctx, CX, CY, (CX + reflEndX) / 2, (CY + reflEndY) / 2, '#FBBF24');
+      ctx.restore();
+
+      // 7. Tia khúc xạ (Refracted Ray) nếu không phản xạ toàn phần
+      if (!data.isTir && data.theta2Deg !== null) {
+        const rad2 = (data.theta2Deg * Math.PI) / 180;
+        const refrEndX = CX + rayLen * Math.sin(rad2);
+        const refrEndY = CY + rayLen * Math.cos(rad2);
+
+        ctx.save();
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = '#38BDF8';
+        ctx.strokeStyle = `rgba(56, 189, 248, ${Math.max(0.4, data.refrP)})`;
+        ctx.lineWidth = Math.max(2, 5 * data.refrP);
+        ctx.beginPath();
+        ctx.moveTo(CX, CY);
+        ctx.lineTo(refrEndX, refrEndY);
+        ctx.stroke();
+        drawArrow(ctx, CX, CY, (CX + refrEndX) / 2, (CY + refrEndY) / 2, '#38BDF8');
+        ctx.restore();
+      }
+
+      // 8. Đèn Laser nguồn phát
+      ctx.save();
+      ctx.translate(incStartX, incStartY);
+      ctx.rotate(rad1);
+      ctx.fillStyle = '#1E293B';
+      ctx.strokeStyle = '#64748B';
+      ctx.lineWidth = 2;
+      ctx.fillRect(-20, -50, 40, 50);
+      ctx.strokeRect(-20, -50, 40, 50);
+      ctx.fillStyle = '#EF4444';
+      ctx.beginPath();
+      ctx.arc(0, 0, 8, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.restore();
+
+      // 9. Điểm tới O tại tâm
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(CX, CY, 6, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+
+    function drawArrow(ctx, fromX, fromY, toX, toY, color) {
+      const angle = Math.atan2(toY - fromY, toX - fromX);
+      const headLen = 14;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(toX, toY);
+      ctx.lineTo(toX - headLen * Math.cos(angle - Math.PI / 6), toY - headLen * Math.sin(angle - Math.PI / 6));
+      ctx.lineTo(toX - headLen * Math.cos(angle + Math.PI / 6), toY - headLen * Math.sin(angle + Math.PI / 6));
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Vẽ ban đầu
+    draw(currentTheta1);
+
+    // API render từng bước cho Puppeteer / Video Recorder
+    window.renderLabStep = function(currentTimeMs, durationMs) {
+      const ratio = Math.min(1.0, Math.max(0.0, currentTimeMs / durationMs));
+      // Tự động quét góc tới từ 20° đến 65° để mô phỏng diễn hoạt giảng dạy
+      const startAngle = LAB_CONFIG.params?.theta1_deg || 30.0;
+      const targetAngle = startAngle > 50 ? 25.0 : 60.0;
+      const sweepAngle = startAngle + (targetAngle - startAngle) * Math.sin(ratio * Math.PI);
+      draw(sweepAngle);
+    };
+  </script>
+</body>
+</html>

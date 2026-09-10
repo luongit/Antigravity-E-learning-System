@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Virtual Lab - Mô Phỏng Sóng Cơ Học & Dao Động</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      background: #0B0F19;
+      font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+      color: #F8FAFC;
+      position: relative;
+    }
+    #canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 1920px; height: 1080px;
+      z-index: 10;
+    }
+    .header-bar {
+      position: absolute;
+      top: 36px; left: 48px;
+      z-index: 50;
+      pointer-events: none;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(168, 85, 247, 0.12);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      border-radius: 999px;
+      padding: 6px 18px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #C084FC;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+    .title {
+      font-size: 38px;
+      font-weight: 900;
+      color: #FFFFFF;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.8);
+    }
+    .subtitle {
+      font-size: 18px;
+      font-weight: 500;
+      color: #94A3B8;
+      margin-top: 6px;
+    }
+    .telemetry-card {
+      position: absolute;
+      bottom: 40px; right: 48px;
+      width: 480px;
+      background: rgba(15, 23, 42, 0.88);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 24px;
+      z-index: 50;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      pointer-events: none;
+    }
+    .telemetry-title {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #C084FC;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .telemetry-item {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 10px 14px;
+    }
+    .telemetry-label { font-size: 13px; color: #94A3B8; margin-bottom: 4px; }
+    .telemetry-value { font-size: 20px; font-weight: 800; color: #FFFFFF; font-family: 'JetBrains Mono', monospace; }
+    .formula-box {
+      margin-top: 14px;
+      background: rgba(168, 85, 247, 0.1);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
+      color: #E9D5FF;
+      text-align: center;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <div class="header-bar">
+    <div class="badge">VIRTUAL LAB • SÓNG CƠ HỌC & DAO ĐỘNG</div>
+    <h1 class="title" id="labTitle">MÔ PHỎNG SÓNG CƠ HỌC TRÊN SỢI DÂY ĐÀN HỒI</h1>
+    <p class="subtitle" id="labSubtitle">Khảo sát bước sóng, tần số, chu kỳ và vận tốc truyền pha</p>
+  </div>
+
+  <canvas id="canvas" width="1920" height="1080"></canvas>
+
+  <div class="telemetry-card">
+    <div class="telemetry-title">
+      <span>THÔNG SỐ SÓNG CƠ (WAVE PARAMETERS)</span>
+      <span style="color: #4ADE80;">LAN TRUYỀN LIÊN TỤC</span>
+    </div>
+    <div class="telemetry-grid">
+      <div class="telemetry-item">
+        <div class="telemetry-label">Biên độ (A)</div>
+        <div class="telemetry-value" id="valAmp" style="color: #F472B6;">4.0 cm</div>
+      </div>
+      <div class="telemetry-item">
+        <div class="telemetry-label">Tần số (f)</div>
+        <div class="telemetry-value" id="valFreq" style="color: #60A5FA;">1.50 Hz</div>
+      </div>
+      <div class="telemetry-item">
+        <div class="telemetry-label">Bước sóng (λ)</div>
+        <div class="telemetry-value" id="valLambda" style="color: #C084FC;">21.3 cm</div>
+      </div>
+      <div class="telemetry-item">
+        <div class="telemetry-label">Vận tốc sóng (v)</div>
+        <div class="telemetry-value" id="valSpeed" style="color: #34D399;">32.0 cm/s</div>
+      </div>
+    </div>
+    <div class="formula-box" id="valFormula">u(x,t) = A·sin(2πft - 2πx/λ) | v = λ·f</div>
+  </div>
+
+  <script>
+    const LAB_CONFIG = __CONFIG_JSON_PLACEHOLDER__;
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const W = 1920, H = 1080;
+    const midY = 540;
+
+    const ampPx = LAB_CONFIG.params?.amplitude_px || 60;
+    const freq = LAB_CONFIG.params?.frequency_hz || 1.5;
+    const waveSpeed = LAB_CONFIG.params?.wave_speed || 320;
+    const lambda = waveSpeed / freq;
+    const endType = LAB_CONFIG.params?.end_type || 'fixed';
+
+    if (LAB_CONFIG.title) document.getElementById('labTitle').innerText = LAB_CONFIG.title;
+    if (LAB_CONFIG.subtitle) document.getElementById('labSubtitle').innerText = LAB_CONFIG.subtitle;
+
+    function drawWave(timeSec) {
+      ctx.clearRect(0, 0, W, H);
+
+      // Trục tọa độ cân bằng
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 8]);
+      ctx.beginPath();
+      ctx.moveTo(120, midY); ctx.lineTo(1800, midY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const startX = 200, endX = 1720;
+      const omega = 2 * Math.PI * freq;
+      const k = 2 * Math.PI / lambda;
+
+      // Vẽ các đường đo bước sóng Lambda
+      const peak1X = startX + 100;
+      const peak2X = peak1X + lambda;
+      if (peak2X < endX) {
+        ctx.strokeStyle = '#C084FC';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(peak1X, midY - ampPx - 30); ctx.lineTo(peak1X, midY - ampPx - 50);
+        ctx.moveTo(peak2X, midY - ampPx - 30); ctx.lineTo(peak2X, midY - ampPx - 50);
+        ctx.moveTo(peak1X, midY - ampPx - 40); ctx.lineTo(peak2X, midY - ampPx - 40);
+        ctx.stroke();
+
+        ctx.fillStyle = '#C084FC';
+        ctx.font = 'bold 16px JetBrains Mono';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Bước sóng λ = ${(lambda/10).toFixed(1)}cm`, (peak1X + peak2X)/2, midY - ampPx - 48);
+      }
+
+      // Vẽ chuỗi hạt sóng (String beads)
+      const numPoints = 140;
+      ctx.strokeStyle = '#A855F7';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+
+      for (let i = 0; i <= numPoints; i++) {
+        const x = startX + (i / numPoints) * (endX - startX);
+        const distFromSource = x - startX;
+        
+        // Sóng tới
+        let y = midY;
+        const waveFront = waveSpeed * timeSec;
+        if (distFromSource <= waveFront) {
+          y = midY - ampPx * Math.sin(omega * timeSec - k * distFromSource);
+        }
+
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Vẽ các hạt tròn trên sợi dây
+      for (let i = 0; i <= numPoints; i += 2) {
+        const x = startX + (i / numPoints) * (endX - startX);
+        const dist = x - startX;
+        let y = midY;
+        if (dist <= waveSpeed * timeSec) {
+          y = midY - ampPx * Math.sin(omega * timeSec - k * dist);
+        }
+        ctx.fillStyle = (i % 8 === 0) ? '#38BDF8' : '#F472B6';
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+
+      // Nguồn phát sóng cơ học ở đầu trái
+      const sourceY = midY - ampPx * Math.sin(omega * timeSec);
+      ctx.fillStyle = '#1E293B';
+      ctx.strokeStyle = '#64748B';
+      ctx.lineWidth = 3;
+      ctx.fillRect(startX - 60, sourceY - 30, 60, 60);
+      ctx.strokeRect(startX - 60, sourceY - 30, 60, 60);
+      ctx.fillStyle = '#EF4444';
+      ctx.beginPath(); ctx.arc(startX, sourceY, 10, 0, 2 * Math.PI); ctx.fill();
+
+      // Đầu kẹp cố định ở bên phải
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(endX, midY - 60, 40, 120);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 15px Be Vietnam Pro';
+      ctx.textAlign = 'center';
+      ctx.fillText(endType === 'fixed' ? 'Cố định' : 'Tự do', endX + 20, midY + 80);
+    }
+
+    drawWave(0);
+
+    window.renderLabStep = function(currentTimeMs, durationMs) {
+      drawWave(currentTimeMs / 1000.0);
+    };
+  </script>
+</body>
+</html>
